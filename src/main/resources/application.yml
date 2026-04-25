@@ -1,0 +1,150 @@
+spring:
+  application:
+    name: velvet-backend
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/velvet}
+    username: ${DB_USER:velvet}
+    password: ${DB_PASS:velvet}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      leak-detection-threshold: 60000
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc:
+          time_zone: UTC
+    open-in-view: false
+    show-sql: false
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+
+  kafka:
+    bootstrap-servers: ${KAFKA_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        max.block.ms: 5000           # 发送超时 5s，不阻塞业务线程
+        delivery.timeout.ms: 10000
+    consumer:
+      group-id: velvet-backend
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: com.velvet.backend.event
+    listener:
+      missing-topics-fatal: false    # topic 不存在时不阻止启动
+    admin:
+      fail-fast: false               # KafkaAdmin 创建 topic 失败不阻止启动
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASS:}
+
+server:
+  port: ${PORT:8080}
+  error:
+    include-message: never           # ⚠️ 不要泄露详细错误（Velvet 渗透测试 H-02）
+    include-binding-errors: never
+    include-stacktrace: never
+    include-exception: false
+
+# Spring Boot Actuator + Prometheus (audit P0 监控)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when-authorized
+    prometheus:
+      enabled: true
+  metrics:
+    tags:
+      application: velvet-backend
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+
+velvet:
+  cors:
+    extra-origins: ${VELVET_CORS_EXTRA:}
+    # ⚠️ 生产必须 false（App Store / 公网部署）
+    allow-localhost: ${VELVET_CORS_ALLOW_LOCALHOST:false}
+  admin:
+    # 逗号分隔用户名或 user id，命中即视为管理员（另一条路径是 user.role=='ADMIN'）
+    usernames: ${ADMIN_USERNAMES:huangji,admin,root}
+    user-ids: ${ADMIN_USER_IDS:1}
+  jwt:
+    secret: ${JWT_SECRET:change-me-in-production-this-is-256-bit-secret-replace-now}
+    expiration-ms: 1800000            # 30 分钟（access token）
+    refresh-expiration-ms: 604800000   # 7 天（refresh token）
+  apple:
+    # iOS bundle id · 必须与 Xcode 工程 PRODUCT_BUNDLE_IDENTIFIER 一致 · 用于校验 Apple JWT aud claim
+    bundle-id: ${APPLE_BUNDLE_ID:com.velvet.velvet}
+    # 是否校验 Apple bundle id (生产 true, 测试可临时 false)
+    verify-audience: ${APPLE_VERIFY_AUDIENCE:true}
+  payment:
+    commission-rate: ${PAYMENT_COMMISSION_RATE:0.06}   # 平台抽佣 6%
+    notify-base-url: ${PAYMENT_NOTIFY_BASE_URL:https://episodes-paid-loan-threatened.trycloudflare.com}
+    default-provider: ${PAYMENT_DEFAULT_PROVIDER:WECHAT} # WECHAT/ALIPAY（MOCK 仅沙盒）
+    # ⚠️ App Store 审核必须 false · MOCK 付款生产环境关闭
+    mock-enabled: ${VELVET_PAYMENT_MOCK_ENABLED:false}
+    wechat:
+      mch-id: ${WECHAT_MCH_ID:}
+      app-id: ${WECHAT_APP_ID:}
+      api-key: ${WECHAT_API_KEY:}
+    alipay:
+      app-id: ${ALIPAY_APP_ID:}
+      private-key: ${ALIPAY_PRIVATE_KEY:}
+  upload:
+    s3:
+      # ── S3 兼容存储配置 ──────────────────────────────────────────
+      # MinIO (自托管):  endpoint=http://minio:9000, region 随意
+      # AWS S3:          endpoint=https://s3.amazonaws.com, region=us-east-1 (或你的区域)
+      # 阿里 OSS:        endpoint=https://oss-cn-shanghai.aliyuncs.com
+      # 腾讯 COS:        endpoint=https://cos.ap-shanghai.myqcloud.com
+      #
+      # MinIO SDK 底层使用标准 S3 协议，以上服务商均兼容。
+      # AWS S3 注意：region 必须匹配 bucket 所在区域，否则签名失败。
+      # ────────────────────────────────────────────────────────────
+      endpoint: ${S3_ENDPOINT:http://minio:9000}
+      # public-endpoint：用于生成给手机/浏览器的 presigned URL。
+      # 必须是公网可达的 host（trycloudflare/CF 隧道/反向代理）。
+      # 留空 → fallback 到 endpoint（仅 Docker 网络内部访问可行）。
+      public-endpoint: ${S3_ENDPOINT_PUBLIC:}
+      bucket: ${S3_BUCKET:velvet-media}
+      region: ${S3_REGION:us-east-1}
+      access-key: ${S3_ACCESS_KEY:}
+      secret-key: ${S3_SECRET_KEY:}
+      # path-style: true → MinIO / 旧 S3 用路径风格 (http://endpoint/bucket/key)
+      # path-style: false → AWS S3 用虚拟主机风格 (http://bucket.s3.region.amazonaws.com/key)
+      # 默认 true 兼容 MinIO；切 AWS S3 时改为 false
+      path-style: ${S3_PATH_STYLE:true}
+    cdn-base-url: ${CDN_BASE_URL:https://cdn.velvet.app}
+
+# 以下配置在 Nacos 启用后可迁移到 Nacos 配置中心:
+# velvet.jwt.secret, velvet.payment.*, spring.datasource.password, spring.data.redis.password
+
+logging:
+  level:
+    root: INFO
+    com.velvet.backend: INFO

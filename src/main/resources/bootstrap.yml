@@ -1,0 +1,19 @@
+spring:
+  application:
+    name: velvet-backend
+  cloud:
+    # Spring Boot 3.5 + Spring Cloud 2024.0.1 版本 mismatch · 禁用兼容性检查
+    # Nacos 未实际启用 (NACOS_ENABLED=false),绕过不影响生产
+    compatibility-verifier:
+      enabled: false
+    nacos:
+      discovery:
+        server-addr: ${NACOS_SERVER:localhost:8848}
+        enabled: ${NACOS_ENABLED:false}
+        namespace: ${NACOS_NAMESPACE:}
+      config:
+        server-addr: ${NACOS_SERVER:localhost:8848}
+        enabled: ${NACOS_ENABLED:false}
+        namespace: ${NACOS_NAMESPACE:}
+        file-extension: yml
+        refresh-enabled: true

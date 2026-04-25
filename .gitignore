@@ -1,0 +1,56 @@
+# Velvet Backend · Spring Boot · gitignore
+
+# Build artifacts
+target/
+build/
+out/
+**/target/
+**/build/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.classpath
+.project
+.settings/
+.factorypath
+nbproject/private/
+.DS_Store
+
+# Logs
+*.log
+logs/
+spring.log
+
+# Spring Boot devtools
+.spring-boot-devtools.properties
+
+# Maven / Gradle
+.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+.gradle/
+
+# OS
+*.bak
+*.swp
+
+# Secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.jks
+*.keystore
+secrets/
+application-local.yml
+application-local.properties
+
+# Generated
+generated/
+node_modules/

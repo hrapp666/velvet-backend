@@ -1,0 +1,14 @@
+# 本地/沙盒开发配置 — 通过 SPRING_PROFILES_ACTIVE=dev 或启动参数 --spring.profiles.active=dev 启用
+# ⚠️ 生产环境绝不能启用 dev profile
+velvet:
+  cors:
+    # 开发环境允许本地 tauri / flutter web
+    allow-localhost: true
+  payment:
+    # 开发环境允许 MOCK 支付（沙盒调试用）
+    mock-enabled: true
+    default-provider: MOCK
+
+logging:
+  level:
+    com.velvet.backend: DEBUG
