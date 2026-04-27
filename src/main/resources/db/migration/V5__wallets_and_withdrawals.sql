@@ -1,11 +1,11 @@
 -- ============================================================================
--- V5 · 卖家钱包 + 提现 + 个人卖家收款字段
+-- V5 · 卖家钱包 + 提现 + 个人卖家收款字段 (MySQL 8.x)
 -- ============================================================================
 
 -- 卖家钱包（每用户唯一一行）
 CREATE TABLE IF NOT EXISTS wallets (
-    id              BIGSERIAL PRIMARY KEY,
-    user_id         BIGINT NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id         BIGINT NOT NULL UNIQUE,
     -- 待结算（订单完成后 T+7 天进可提现，防退款）
     pending_cents   BIGINT NOT NULL DEFAULT 0,
     -- 可提现余额
@@ -16,15 +16,16 @@ CREATE TABLE IF NOT EXISTS wallets (
     total_sales_cents BIGINT NOT NULL DEFAULT 0,
     -- 累计平台佣金（卖出去的，被平台扣的）
     total_commission_cents BIGINT NOT NULL DEFAULT 0,
-    created_at      TIMESTAMP NOT NULL DEFAULT now(),
-    updated_at      TIMESTAMP NOT NULL DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS idx_wallets_user ON wallets(user_id);
+    created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_wallets_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_wallets_user (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 钱包流水（每次变动一条记录，account ledger）
 CREATE TABLE IF NOT EXISTS wallet_entries (
-    id              BIGSERIAL PRIMARY KEY,
-    user_id         BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id         BIGINT NOT NULL,
     -- INCOME (订单结算入账) / WITHDRAW / REFUND / COMMISSION / ADJUST
     type            VARCHAR(16) NOT NULL,
     -- 关联订单/提现
@@ -35,14 +36,15 @@ CREATE TABLE IF NOT EXISTS wallet_entries (
     -- 入账后余额快照
     balance_after_cents BIGINT NOT NULL,
     description     TEXT,
-    created_at      TIMESTAMP NOT NULL DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS idx_wallet_entries_user ON wallet_entries(user_id, created_at DESC);
+    created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_wallet_entries_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_wallet_entries_user (user_id, created_at DESC)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 提现申请
 CREATE TABLE IF NOT EXISTS withdrawals (
-    id              BIGSERIAL PRIMARY KEY,
-    user_id         BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id         BIGINT NOT NULL,
     amount_cents    BIGINT NOT NULL,
     -- WECHAT / ALIPAY / BANK
     method          VARCHAR(16) NOT NULL,
@@ -52,17 +54,20 @@ CREATE TABLE IF NOT EXISTS withdrawals (
     -- PENDING / APPROVED / PAID / REJECTED
     status          VARCHAR(16) NOT NULL DEFAULT 'PENDING',
     review_note     TEXT,
-    reviewed_by     BIGINT REFERENCES users(id),
-    reviewed_at     TIMESTAMP,
-    paid_at         TIMESTAMP,
+    reviewed_by     BIGINT,
+    reviewed_at     TIMESTAMP NULL,
+    paid_at         TIMESTAMP NULL,
     -- 第三方流水号（人工/自动提现）
     payout_trade_id VARCHAR(128),
-    created_at      TIMESTAMP NOT NULL DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS idx_withdrawals_user ON withdrawals(user_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_withdrawals_status ON withdrawals(status);
+    created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_withdrawals_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_withdrawals_reviewer FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE SET NULL,
+    INDEX idx_withdrawals_user (user_id, created_at DESC),
+    INDEX idx_withdrawals_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 订单增加平台佣金快照字段（便于审计/结算）
+-- 注：V4 已添加 commission_cents，此处保留 IF NOT EXISTS 幂等
 ALTER TABLE orders
     ADD COLUMN IF NOT EXISTS commission_cents BIGINT NOT NULL DEFAULT 0;
 

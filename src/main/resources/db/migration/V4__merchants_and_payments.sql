@@ -1,5 +1,5 @@
 -- ============================================================================
--- V4 · 商家认证 + 支付提供方
+-- V4 · 商家认证 + 支付提供方 (MySQL 8.x · 8.0.29+ 支持 ADD COLUMN IF NOT EXISTS)
 -- ============================================================================
 
 -- ----------------------------------------------------------------------------
@@ -17,8 +17,8 @@ CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 -- 商家档案
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS merchants (
-    id              BIGSERIAL PRIMARY KEY,
-    user_id         BIGINT NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id         BIGINT NOT NULL UNIQUE,
     -- 店铺信息
     shop_name       VARCHAR(64) NOT NULL,
     shop_avatar     TEXT,
@@ -36,25 +36,27 @@ CREATE TABLE IF NOT EXISTS merchants (
     -- 状态
     status          VARCHAR(16) NOT NULL DEFAULT 'PENDING',
     review_note     TEXT,
-    reviewed_by     BIGINT REFERENCES users(id),
-    reviewed_at     TIMESTAMP,
+    reviewed_by     BIGINT,
+    reviewed_at     TIMESTAMP NULL,
     -- 数据
     rating          DECIMAL(3,2) DEFAULT 0,
-    sales_count     INTEGER NOT NULL DEFAULT 0,
+    sales_count     INT NOT NULL DEFAULT 0,
     -- 时间
-    created_at      TIMESTAMP NOT NULL DEFAULT now(),
-    updated_at      TIMESTAMP NOT NULL DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS idx_merchants_status ON merchants(status);
-CREATE INDEX IF NOT EXISTS idx_merchants_user ON merchants(user_id);
+    created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_merchants_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_merchants_reviewer FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE SET NULL,
+    INDEX idx_merchants_status (status),
+    INDEX idx_merchants_user (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------------------------------------------------------
 -- 支付记录（独立表，订单可有多次支付尝试）
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS payments (
-    id              BIGSERIAL PRIMARY KEY,
-    order_id        BIGINT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
-    user_id         BIGINT NOT NULL REFERENCES users(id),
+    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    order_id        BIGINT NOT NULL,
+    user_id         BIGINT NOT NULL,
     -- 提供方: WECHAT / ALIPAY / MOCK
     provider        VARCHAR(16) NOT NULL,
     -- 状态: CREATED / PAID / FAILED / REFUNDED
@@ -69,17 +71,19 @@ CREATE TABLE IF NOT EXISTS payments (
     -- 拉起支付的 payload (JSON: 支付宝 form / 微信 prepay_id)
     payload         TEXT,
     -- 异步通知
-    notify_at       TIMESTAMP,
+    notify_at       TIMESTAMP NULL,
     notify_raw      TEXT,
     -- 时间
-    created_at      TIMESTAMP NOT NULL DEFAULT now(),
-    paid_at         TIMESTAMP,
-    failed_at       TIMESTAMP,
-    failed_reason   TEXT
-);
-CREATE INDEX IF NOT EXISTS idx_payments_order ON payments(order_id);
-CREATE INDEX IF NOT EXISTS idx_payments_provider_order ON payments(provider_order_id);
-CREATE INDEX IF NOT EXISTS idx_payments_user ON payments(user_id);
+    created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    paid_at         TIMESTAMP NULL,
+    failed_at       TIMESTAMP NULL,
+    failed_reason   TEXT,
+    CONSTRAINT fk_payments_order FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+    CONSTRAINT fk_payments_user FOREIGN KEY (user_id) REFERENCES users(id),
+    INDEX idx_payments_order (order_id),
+    INDEX idx_payments_provider_order (provider_order_id),
+    INDEX idx_payments_user (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------------------------------------------------------
 -- 订单加 commission_cents（平台抽佣金额，价格快照计算）

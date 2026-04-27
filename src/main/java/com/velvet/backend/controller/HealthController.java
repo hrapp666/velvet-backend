@@ -36,13 +36,13 @@ public class HealthController {
     public Map<String, Object> deepHealth() {
         Map<String, Object> deps = new HashMap<>();
 
-        // Postgres
+        // MySQL
         try {
             long userCount = userRepository.count();
-            deps.put("postgres", Map.of("status", "up", "userCount", userCount));
+            deps.put("mysql", Map.of("status", "up", "userCount", userCount));
         } catch (Exception e) {
-            log.warn("postgres health check failed", e);
-            deps.put("postgres", Map.of("status", "down", "error", e.getClass().getSimpleName()));
+            log.warn("mysql health check failed", e);
+            deps.put("mysql", Map.of("status", "down", "error", e.getClass().getSimpleName()));
         }
 
         // Redis

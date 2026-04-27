@@ -1,16 +1,15 @@
 -- ============================================================================
--- Velvet · 数据库初始化 V1（动态社区版）
+-- Velvet · 数据库初始化 V1（动态社区版 · MySQL 8.x）
 -- ============================================================================
 -- 形态：小红书式动态发布 + 闲鱼式私聊撮合
 -- 平台不参与交易，只做信息流 + 私聊通道 + 收藏关注
--- 商业模式：后续讨论（暂无平台抽成 / 暂无 VIP）
 -- ============================================================================
 
 -- ----------------------------------------------------------------------------
 -- 1. 用户系统
 -- ----------------------------------------------------------------------------
 CREATE TABLE users (
-    id              BIGSERIAL PRIMARY KEY,
+    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
     username        VARCHAR(64)  NOT NULL UNIQUE,
     email           VARCHAR(128) UNIQUE,
     phone           VARCHAR(32)  UNIQUE,
@@ -19,89 +18,90 @@ CREATE TABLE users (
     -- 资料
     nickname        VARCHAR(64)  NOT NULL,
     avatar_url      VARCHAR(512),
-    cover_url       VARCHAR(512),                          -- 个人主页封面
+    cover_url       VARCHAR(512),
     bio             TEXT,
-    gender          SMALLINT     DEFAULT 0,                -- 0 unknown 1 male 2 female 3 other
+    gender          SMALLINT     DEFAULT 0,
     birthday        DATE,
-    location        VARCHAR(64),                           -- 城市，可选
+    location        VARCHAR(64),
 
     -- 状态
-    role            VARCHAR(16)  NOT NULL DEFAULT 'USER',  -- USER / ADMIN
-    status          VARCHAR(16)  NOT NULL DEFAULT 'ACTIVE',-- ACTIVE / BANNED / DELETED
+    role            VARCHAR(16)  NOT NULL DEFAULT 'USER',
+    status          VARCHAR(16)  NOT NULL DEFAULT 'ACTIVE',
 
-    -- 信誉（轻量，靠社区互动而非订单）
-    moments_count   INTEGER      NOT NULL DEFAULT 0,
-    followers_count INTEGER      NOT NULL DEFAULT 0,
-    following_count INTEGER      NOT NULL DEFAULT 0,
-    likes_received  INTEGER      NOT NULL DEFAULT 0,
+    -- 信誉
+    moments_count   INT          NOT NULL DEFAULT 0,
+    followers_count INT          NOT NULL DEFAULT 0,
+    following_count INT          NOT NULL DEFAULT 0,
+    likes_received  INT          NOT NULL DEFAULT 0,
 
     -- 隐私设置
-    is_private      BOOLEAN      NOT NULL DEFAULT FALSE,   -- 私密账号
-    accept_dm_from  VARCHAR(16)  NOT NULL DEFAULT 'ALL',   -- ALL / FOLLOWING / NONE
+    is_private      TINYINT(1)   NOT NULL DEFAULT 0,
+    accept_dm_from  VARCHAR(16)  NOT NULL DEFAULT 'ALL',
 
-    created_at      TIMESTAMP NOT NULL DEFAULT now(),
-    updated_at      TIMESTAMP NOT NULL DEFAULT now(),
-    last_active_at  TIMESTAMP
-);
+    created_at      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    last_active_at  TIMESTAMP    NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE INDEX idx_users_phone ON users(phone);
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_active ON users(last_active_at DESC);
 
 -- ----------------------------------------------------------------------------
--- 2. 动态（核心表 — 替代传统电商的 products）
+-- 2. 动态
 -- ----------------------------------------------------------------------------
 CREATE TABLE moments (
-    id              BIGSERIAL PRIMARY KEY,
-    user_id         BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id         BIGINT NOT NULL,
 
     -- 内容
-    title           VARCHAR(128),                          -- 可选标题
-    content         TEXT NOT NULL,                         -- 正文
+    title           VARCHAR(128),
+    content         TEXT NOT NULL,
     cover_url       VARCHAR(512),
-    media_urls      JSONB NOT NULL DEFAULT '[]'::jsonb,    -- 图集/视频 [{url, type, w, h}]
+    media_urls      JSON NOT NULL,
 
-    -- 商品标记（动态可挂可不挂物品）
-    has_item        BOOLEAN NOT NULL DEFAULT FALSE,
-    item_price_cents BIGINT,                               -- 期望价格（仅展示，不参与交易）
-    item_attributes JSONB DEFAULT '{}'::jsonb,             -- 物品属性 free-form
+    -- 商品标记
+    has_item        TINYINT(1) NOT NULL DEFAULT 0,
+    item_price_cents BIGINT,
+    item_attributes JSON,
 
-    -- 标签 + 分类
-    tags            TEXT[] DEFAULT ARRAY[]::TEXT[],
+    -- 标签 + 分类（MySQL 无原生数组类型 → JSON 数组）
+    tags            JSON,
     location        VARCHAR(64),
 
     -- Feed 控制
-    visibility      VARCHAR(16) NOT NULL DEFAULT 'PUBLIC', -- PUBLIC / FOLLOWERS / PRIVATE
-    is_pinned       BOOLEAN NOT NULL DEFAULT FALSE,        -- 置顶到个人主页
+    visibility      VARCHAR(16) NOT NULL DEFAULT 'PUBLIC',
+    is_pinned       TINYINT(1) NOT NULL DEFAULT 0,
 
-    -- 状态
     status          VARCHAR(16) NOT NULL DEFAULT 'PUBLISHED',
-    -- DRAFT / PUBLISHED / HIDDEN / DELETED
 
-    -- 计数
-    view_count      INTEGER NOT NULL DEFAULT 0,
-    like_count      INTEGER NOT NULL DEFAULT 0,
-    favorite_count  INTEGER NOT NULL DEFAULT 0,
-    comment_count   INTEGER NOT NULL DEFAULT 0,
-    chat_count      INTEGER NOT NULL DEFAULT 0,            -- 多少人因为这条动态发起私聊
+    view_count      INT NOT NULL DEFAULT 0,
+    like_count      INT NOT NULL DEFAULT 0,
+    favorite_count  INT NOT NULL DEFAULT 0,
+    comment_count   INT NOT NULL DEFAULT 0,
+    chat_count      INT NOT NULL DEFAULT 0,
 
-    created_at      TIMESTAMP NOT NULL DEFAULT now(),
-    updated_at      TIMESTAMP NOT NULL DEFAULT now()
-);
+    created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_moments_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE INDEX idx_moments_user ON moments(user_id, created_at DESC);
 CREATE INDEX idx_moments_status ON moments(status, created_at DESC);
-CREATE INDEX idx_moments_tags ON moments USING GIN(tags);
 CREATE INDEX idx_moments_visibility ON moments(visibility);
+-- MySQL 不支持 GIN(tags) JSON 索引，标签查询通过 JSON_CONTAINS 或全文索引（按需后续增加）
 
 -- ----------------------------------------------------------------------------
 -- 3. 关注关系
 -- ----------------------------------------------------------------------------
 CREATE TABLE follows (
-    id              BIGSERIAL PRIMARY KEY,
-    follower_id     BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    followee_id     BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    created_at      TIMESTAMP NOT NULL DEFAULT now(),
-    UNIQUE (follower_id, followee_id)
-);
+    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    follower_id     BIGINT NOT NULL,
+    followee_id     BIGINT NOT NULL,
+    created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_follows_pair (follower_id, followee_id),
+    CONSTRAINT fk_follows_follower FOREIGN KEY (follower_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_follows_followee FOREIGN KEY (followee_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE INDEX idx_follows_follower ON follows(follower_id, created_at DESC);
 CREATE INDEX idx_follows_followee ON follows(followee_id, created_at DESC);
 
@@ -109,133 +109,150 @@ CREATE INDEX idx_follows_followee ON follows(followee_id, created_at DESC);
 -- 4. 点赞 / 收藏 / 评论
 -- ----------------------------------------------------------------------------
 CREATE TABLE likes (
-    id              BIGSERIAL PRIMARY KEY,
-    user_id         BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    moment_id       BIGINT NOT NULL REFERENCES moments(id) ON DELETE CASCADE,
-    created_at      TIMESTAMP NOT NULL DEFAULT now(),
-    UNIQUE (user_id, moment_id)
-);
+    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id         BIGINT NOT NULL,
+    moment_id       BIGINT NOT NULL,
+    created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_likes_user_moment (user_id, moment_id),
+    CONSTRAINT fk_likes_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_likes_moment FOREIGN KEY (moment_id) REFERENCES moments(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE INDEX idx_likes_moment ON likes(moment_id);
 CREATE INDEX idx_likes_user ON likes(user_id, created_at DESC);
 
 CREATE TABLE favorites (
-    id              BIGSERIAL PRIMARY KEY,
-    user_id         BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    moment_id       BIGINT NOT NULL REFERENCES moments(id) ON DELETE CASCADE,
+    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id         BIGINT NOT NULL,
+    moment_id       BIGINT NOT NULL,
     folder          VARCHAR(64) DEFAULT 'default',
-    created_at      TIMESTAMP NOT NULL DEFAULT now(),
-    UNIQUE (user_id, moment_id)
-);
+    created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_favorites_user_moment (user_id, moment_id),
+    CONSTRAINT fk_favorites_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_favorites_moment FOREIGN KEY (moment_id) REFERENCES moments(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE INDEX idx_favorites_user ON favorites(user_id, created_at DESC);
 
 CREATE TABLE comments (
-    id              BIGSERIAL PRIMARY KEY,
-    moment_id       BIGINT NOT NULL REFERENCES moments(id) ON DELETE CASCADE,
-    user_id         BIGINT NOT NULL REFERENCES users(id),
-    parent_id       BIGINT REFERENCES comments(id) ON DELETE CASCADE,
+    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    moment_id       BIGINT NOT NULL,
+    user_id         BIGINT NOT NULL,
+    parent_id       BIGINT NULL,
     content         TEXT NOT NULL,
-    like_count      INTEGER NOT NULL DEFAULT 0,
-    created_at      TIMESTAMP NOT NULL DEFAULT now()
-);
+    like_count      INT NOT NULL DEFAULT 0,
+    created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_comments_moment FOREIGN KEY (moment_id) REFERENCES moments(id) ON DELETE CASCADE,
+    CONSTRAINT fk_comments_user FOREIGN KEY (user_id) REFERENCES users(id),
+    CONSTRAINT fk_comments_parent FOREIGN KEY (parent_id) REFERENCES comments(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE INDEX idx_comments_moment ON comments(moment_id, created_at DESC);
 CREATE INDEX idx_comments_parent ON comments(parent_id);
 
 -- ----------------------------------------------------------------------------
--- 5. 私聊（核心 — 撮合通道）
+-- 5. 私聊
 -- ----------------------------------------------------------------------------
 CREATE TABLE conversations (
-    id              BIGSERIAL PRIMARY KEY,
-    user_a_id       BIGINT NOT NULL REFERENCES users(id),
-    user_b_id       BIGINT NOT NULL REFERENCES users(id),
-    moment_id       BIGINT REFERENCES moments(id),         -- 因哪条动态发起的（可选）
+    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_a_id       BIGINT NOT NULL,
+    user_b_id       BIGINT NOT NULL,
+    moment_id       BIGINT NULL,
     last_message    TEXT,
-    last_message_at TIMESTAMP,
-    unread_a        INTEGER NOT NULL DEFAULT 0,
-    unread_b        INTEGER NOT NULL DEFAULT 0,
-    -- 任一方拉黑 = 关闭会话
-    is_blocked_by_a BOOLEAN NOT NULL DEFAULT FALSE,
-    is_blocked_by_b BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at      TIMESTAMP NOT NULL DEFAULT now(),
-    UNIQUE (user_a_id, user_b_id, moment_id)
-);
+    last_message_at TIMESTAMP NULL,
+    unread_a        INT NOT NULL DEFAULT 0,
+    unread_b        INT NOT NULL DEFAULT 0,
+    is_blocked_by_a TINYINT(1) NOT NULL DEFAULT 0,
+    is_blocked_by_b TINYINT(1) NOT NULL DEFAULT 0,
+    created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_conversations_triplet (user_a_id, user_b_id, moment_id),
+    CONSTRAINT fk_conversations_a FOREIGN KEY (user_a_id) REFERENCES users(id),
+    CONSTRAINT fk_conversations_b FOREIGN KEY (user_b_id) REFERENCES users(id),
+    CONSTRAINT fk_conversations_moment FOREIGN KEY (moment_id) REFERENCES moments(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE INDEX idx_conv_a ON conversations(user_a_id, last_message_at DESC);
 CREATE INDEX idx_conv_b ON conversations(user_b_id, last_message_at DESC);
 
 CREATE TABLE messages (
-    id              BIGSERIAL PRIMARY KEY,
-    conversation_id BIGINT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
-    sender_id       BIGINT NOT NULL REFERENCES users(id),
-    type            VARCHAR(16) NOT NULL DEFAULT 'TEXT',   -- TEXT / IMAGE / VOICE / MOMENT_CARD / SYSTEM
+    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    conversation_id BIGINT NOT NULL,
+    sender_id       BIGINT NOT NULL,
+    type            VARCHAR(16) NOT NULL DEFAULT 'TEXT',
     content         TEXT NOT NULL,
-    extra           JSONB,                                 -- 媒体 url / 时长 / 引用 moment
-    is_read         BOOLEAN NOT NULL DEFAULT FALSE,
-    is_recalled     BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at      TIMESTAMP NOT NULL DEFAULT now()
-);
+    extra           JSON,
+    is_read         TINYINT(1) NOT NULL DEFAULT 0,
+    is_recalled     TINYINT(1) NOT NULL DEFAULT 0,
+    created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_messages_conv FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
+    CONSTRAINT fk_messages_sender FOREIGN KEY (sender_id) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE INDEX idx_messages_conv ON messages(conversation_id, created_at);
 
 -- ----------------------------------------------------------------------------
 -- 6. 通知
 -- ----------------------------------------------------------------------------
 CREATE TABLE notifications (
-    id              BIGSERIAL PRIMARY KEY,
-    user_id         BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id         BIGINT NOT NULL,
     type            VARCHAR(32) NOT NULL,
-    -- LIKE / COMMENT / FOLLOW / DM / FAVORITE / SYSTEM
     title           VARCHAR(128) NOT NULL,
     content         TEXT,
-    actor_id        BIGINT REFERENCES users(id),           -- 触发通知的人
-    target_type     VARCHAR(16),                           -- MOMENT / USER / COMMENT
+    actor_id        BIGINT NULL,
+    target_type     VARCHAR(16),
     target_id       BIGINT,
-    is_read         BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at      TIMESTAMP NOT NULL DEFAULT now()
-);
+    is_read         TINYINT(1) NOT NULL DEFAULT 0,
+    created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_notifications_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_notifications_actor FOREIGN KEY (actor_id) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE INDEX idx_notif_user ON notifications(user_id, is_read, created_at DESC);
 
 -- ----------------------------------------------------------------------------
--- 7. 举报（合规所需）
+-- 7. 举报
 -- ----------------------------------------------------------------------------
 CREATE TABLE reports (
-    id              BIGSERIAL PRIMARY KEY,
-    reporter_id     BIGINT NOT NULL REFERENCES users(id),
-    target_type     VARCHAR(16) NOT NULL,    -- MOMENT / USER / COMMENT / MESSAGE
+    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    reporter_id     BIGINT NOT NULL,
+    target_type     VARCHAR(16) NOT NULL,
     target_id       BIGINT NOT NULL,
     reason          VARCHAR(64) NOT NULL,
     description     TEXT,
     status          VARCHAR(16) NOT NULL DEFAULT 'OPEN',
-    handled_by      BIGINT REFERENCES users(id),
-    handled_at      TIMESTAMP,
-    created_at      TIMESTAMP NOT NULL DEFAULT now()
-);
+    handled_by      BIGINT NULL,
+    handled_at      TIMESTAMP NULL,
+    created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_reports_reporter FOREIGN KEY (reporter_id) REFERENCES users(id),
+    CONSTRAINT fk_reports_handler FOREIGN KEY (handled_by) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE INDEX idx_reports_status ON reports(status);
 
 -- ----------------------------------------------------------------------------
 -- 8. 拉黑
 -- ----------------------------------------------------------------------------
 CREATE TABLE blocks (
-    id              BIGSERIAL PRIMARY KEY,
-    blocker_id      BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    blocked_id      BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    created_at      TIMESTAMP NOT NULL DEFAULT now(),
-    UNIQUE (blocker_id, blocked_id)
-);
+    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    blocker_id      BIGINT NOT NULL,
+    blocked_id      BIGINT NOT NULL,
+    created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_blocks_pair (blocker_id, blocked_id),
+    CONSTRAINT fk_blocks_blocker FOREIGN KEY (blocker_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_blocks_blocked FOREIGN KEY (blocked_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE INDEX idx_blocks_blocker ON blocks(blocker_id);
 
 -- ----------------------------------------------------------------------------
--- 9. 内容审核 auto-fix 历史（OpenSpace E1-E3 启发）
--- 拒绝的 listing 会被自动 fix 后存档，用于 skill 进化
+-- 9. 内容审核 auto-fix 历史
 -- ----------------------------------------------------------------------------
 CREATE TABLE moderation_fixes (
-    id              BIGSERIAL PRIMARY KEY,
-    moment_id       BIGINT REFERENCES moments(id) ON DELETE SET NULL,
-    user_id         BIGINT NOT NULL REFERENCES users(id),
+    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    moment_id       BIGINT NULL,
+    user_id         BIGINT NOT NULL,
     original_text   TEXT NOT NULL,
     fixed_text      TEXT NOT NULL,
     rejection_reason VARCHAR(64) NOT NULL,
-    fix_strategy    VARCHAR(32) NOT NULL,    -- KEYWORD_REPLACE / REWRITE / IMAGE_ENHANCE
-    applied         BOOLEAN NOT NULL DEFAULT FALSE,
-    skill_version   INTEGER NOT NULL DEFAULT 1,            -- E2 FIX / E3 DERIVED 版本号
-    created_at      TIMESTAMP NOT NULL DEFAULT now()
-);
+    fix_strategy    VARCHAR(32) NOT NULL,
+    applied         TINYINT(1) NOT NULL DEFAULT 0,
+    skill_version   INT NOT NULL DEFAULT 1,
+    created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_modfix_moment FOREIGN KEY (moment_id) REFERENCES moments(id) ON DELETE SET NULL,
+    CONSTRAINT fk_modfix_user FOREIGN KEY (user_id) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE INDEX idx_moderation_fixes_user ON moderation_fixes(user_id);
 CREATE INDEX idx_moderation_fixes_strategy ON moderation_fixes(fix_strategy);

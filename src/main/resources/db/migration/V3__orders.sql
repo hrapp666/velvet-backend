@@ -1,12 +1,12 @@
 -- ============================================================================
--- V3 · 订单 + 评价
+-- V3 · 订单 + 评价 (MySQL 8.x)
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS orders (
-    id              BIGSERIAL PRIMARY KEY,
-    moment_id       BIGINT NOT NULL REFERENCES moments(id) ON DELETE RESTRICT,
-    buyer_id        BIGINT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
-    seller_id       BIGINT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    moment_id       BIGINT NOT NULL,
+    buyer_id        BIGINT NOT NULL,
+    seller_id       BIGINT NOT NULL,
     -- 价格快照（防止 moment 改价后历史失真）
     price_cents     BIGINT NOT NULL,
     -- 商品标题快照
@@ -21,41 +21,47 @@ CREATE TABLE IF NOT EXISTS orders (
     -- 支付
     payment_method  VARCHAR(16),  -- WECHAT / ALIPAY / MOCK
     payment_id      VARCHAR(128), -- 第三方支付订单号
-    paid_at         TIMESTAMP,
+    paid_at         TIMESTAMP NULL,
     -- 物流
-    shipped_at      TIMESTAMP,
+    shipped_at      TIMESTAMP NULL,
     tracking_no     VARCHAR(64),
-    received_at     TIMESTAMP,
-    confirmed_at    TIMESTAMP,
+    received_at     TIMESTAMP NULL,
+    confirmed_at    TIMESTAMP NULL,
     -- 退款 / 争议
     refund_reason   TEXT,
-    refunded_at     TIMESTAMP,
+    refunded_at     TIMESTAMP NULL,
     -- 备注
     buyer_note      TEXT,
     seller_note     TEXT,
     -- 时间戳
-    created_at      TIMESTAMP NOT NULL DEFAULT now(),
-    updated_at      TIMESTAMP NOT NULL DEFAULT now(),
-    canceled_at     TIMESTAMP
-);
-CREATE INDEX IF NOT EXISTS idx_orders_buyer ON orders(buyer_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_orders_seller ON orders(seller_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_orders_moment ON orders(moment_id);
-CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
+    created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    canceled_at     TIMESTAMP NULL,
+    CONSTRAINT fk_orders_moment FOREIGN KEY (moment_id) REFERENCES moments(id) ON DELETE RESTRICT,
+    CONSTRAINT fk_orders_buyer FOREIGN KEY (buyer_id) REFERENCES users(id) ON DELETE RESTRICT,
+    CONSTRAINT fk_orders_seller FOREIGN KEY (seller_id) REFERENCES users(id) ON DELETE RESTRICT,
+    INDEX idx_orders_buyer (buyer_id, created_at DESC),
+    INDEX idx_orders_seller (seller_id, created_at DESC),
+    INDEX idx_orders_moment (moment_id),
+    INDEX idx_orders_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------------------------------------------------------
 -- 订单评价（买卖家互评）
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS order_reviews (
-    id              BIGSERIAL PRIMARY KEY,
-    order_id        BIGINT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    order_id        BIGINT NOT NULL,
     -- 评价方角色：BUYER 或 SELLER
     reviewer_role   VARCHAR(8) NOT NULL,
-    reviewer_id     BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    reviewer_id     BIGINT NOT NULL,
     -- 1-5 星
-    rating          SMALLINT NOT NULL CHECK (rating >= 1 AND rating <= 5),
+    rating          SMALLINT NOT NULL,
     content         TEXT,
-    created_at      TIMESTAMP NOT NULL DEFAULT now(),
-    UNIQUE (order_id, reviewer_role)
-);
-CREATE INDEX IF NOT EXISTS idx_order_reviews_order ON order_reviews(order_id);
+    created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_review_rating CHECK (rating >= 1 AND rating <= 5),
+    CONSTRAINT fk_review_order FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+    CONSTRAINT fk_review_user FOREIGN KEY (reviewer_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE KEY uk_review_role (order_id, reviewer_role),
+    INDEX idx_order_reviews_order (order_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

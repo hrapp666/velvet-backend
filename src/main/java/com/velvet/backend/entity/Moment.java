@@ -42,7 +42,7 @@ public class Moment {
     private String coverUrl;
 
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "media_urls", columnDefinition = "jsonb")
+    @Column(name = "media_urls", columnDefinition = "json")
     @Builder.Default
     private List<String> mediaUrls = new ArrayList<>();
 
@@ -54,11 +54,12 @@ public class Moment {
     private Long itemPriceCents;
 
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "item_attributes", columnDefinition = "jsonb")
+    @Column(name = "item_attributes", columnDefinition = "json")
     @Builder.Default
     private Map<String, Object> itemAttributes = new HashMap<>();
 
-    @Column(columnDefinition = "text[]")
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "json")
     private String[] tags;
 
     @Column(length = 64)
