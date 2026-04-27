@@ -4,6 +4,8 @@ import com.velvet.backend.dto.MomentRequests.*;
 import com.velvet.backend.entity.Moment;
 import com.velvet.backend.entity.User;
 import com.velvet.backend.exception.AppException;
+import com.velvet.backend.repository.FavoriteRepository;
+import com.velvet.backend.repository.LikeRepository;
 import com.velvet.backend.repository.MomentRepository;
 import com.velvet.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +28,8 @@ public class MomentService {
 
     private final MomentRepository momentRepo;
     private final UserRepository userRepo;
+    private final LikeRepository likeRepo;
+    private final FavoriteRepository favoriteRepo;
     private final MerchantService merchantService;
     private final com.velvet.backend.security.HtmlSanitizer htmlSanitizer;
     private final ContentModerationService contentModerationService;
@@ -90,9 +94,16 @@ public class MomentService {
                 ? Set.of()
                 : new HashSet<>(blockService.mutualBlockedIds(viewerId));
         Map<Long, User> userMap = batchFetchUsers(moments.getContent());
-        List<MomentDto> dtos = moments.getContent().stream()
+        List<Moment> visible = moments.getContent().stream()
                 .filter(m -> !blockedSet.contains(m.getUserId()))
-                .map(m -> toDto(m, userMap.get(m.getUserId()), false, false, null))
+                .toList();
+        Set<Long> likedSet = batchFetchLikedIds(viewerId, visible);
+        Set<Long> favoritedSet = batchFetchFavoritedIds(viewerId, visible);
+        List<MomentDto> dtos = visible.stream()
+                .map(m -> toDto(m, userMap.get(m.getUserId()),
+                        likedSet.contains(m.getId()),
+                        favoritedSet.contains(m.getId()),
+                        null))
                 .toList();
         return new org.springframework.data.domain.PageImpl<>(dtos, pageable, moments.getTotalElements());
     }
@@ -109,7 +120,12 @@ public class MomentService {
         );
         // N+1 fix: 同 userId，只 fetch 一次
         User user = userRepo.findById(userId).orElse(null);
-        return moments.map(m -> toDto(m, user, false, false, null));
+        Set<Long> likedSet = batchFetchLikedIds(viewerId, moments.getContent());
+        Set<Long> favoritedSet = batchFetchFavoritedIds(viewerId, moments.getContent());
+        return moments.map(m -> toDto(m, user,
+                likedSet.contains(m.getId()),
+                favoritedSet.contains(m.getId()),
+                null));
     }
 
     /**
@@ -127,6 +143,23 @@ public class MomentService {
             map.put(u.getId(), u);
         }
         return map;
+    }
+
+    /**
+     * 批量取 viewer 已 like 的 momentId（feed 列表用，避免 N+1）
+     * viewerId 为 null（匿名）或 moments 为空时返回空集，调用端 contains 永远 false。
+     */
+    private Set<Long> batchFetchLikedIds(Long viewerId, List<Moment> moments) {
+        if (viewerId == null || moments.isEmpty()) return Set.of();
+        List<Long> ids = moments.stream().map(Moment::getId).toList();
+        return new HashSet<>(likeRepo.findLikedMomentIds(viewerId, ids));
+    }
+
+    /** 批量取 viewer 已 favorite 的 momentId（feed 列表用，避免 N+1） */
+    private Set<Long> batchFetchFavoritedIds(Long viewerId, List<Moment> moments) {
+        if (viewerId == null || moments.isEmpty()) return Set.of();
+        List<Long> ids = moments.stream().map(Moment::getId).toList();
+        return new HashSet<>(favoriteRepo.findFavoritedMomentIds(viewerId, ids));
     }
 
     /**
@@ -183,10 +216,15 @@ public class MomentService {
         // 4. N+1 fix: 批量 fetch users
         List<Moment> sliceMoments = pageSlice.stream().map(h -> h.m).toList();
         Map<Long, User> userMap = batchFetchUsers(sliceMoments);
+        Set<Long> likedSet = batchFetchLikedIds(viewerId, sliceMoments);
+        Set<Long> favoritedSet = batchFetchFavoritedIds(viewerId, sliceMoments);
 
         // 5. 转 DTO 并填距离
         return pageSlice.stream()
-                .map(h -> toDto(h.m, userMap.get(h.m.getUserId()), false, false, h.distMeters))
+                .map(h -> toDto(h.m, userMap.get(h.m.getUserId()),
+                        likedSet.contains(h.m.getId()),
+                        favoritedSet.contains(h.m.getId()),
+                        h.distMeters))
                 .toList();
     }
 
@@ -259,13 +297,22 @@ public class MomentService {
 
     public MomentDto toDtoWithUser(Moment m, Long viewerId) {
         User user = userRepo.findById(m.getUserId()).orElse(null);
-        // TODO: 检查是否已 like / favorite（接 LikeRepo / FavoriteRepo 后实现）
-        return toDto(m, user, false, false, null);
+        // 同事反馈"点赞后重新进来是未点赞状态" = 此处之前 hardcode false
+        // 修复：viewerId 非空时查 like/favorite repo,匿名访问保持 false
+        boolean liked = viewerId != null
+                && likeRepo.existsByUserIdAndMomentId(viewerId, m.getId());
+        boolean favorited = viewerId != null
+                && favoriteRepo.existsByUserIdAndMomentId(viewerId, m.getId());
+        return toDto(m, user, liked, favorited, null);
     }
 
     public MomentDto toDtoWithDistance(Moment m, Long viewerId, double distMeters) {
         User user = userRepo.findById(m.getUserId()).orElse(null);
-        return toDto(m, user, false, false, distMeters);
+        boolean liked = viewerId != null
+                && likeRepo.existsByUserIdAndMomentId(viewerId, m.getId());
+        boolean favorited = viewerId != null
+                && favoriteRepo.existsByUserIdAndMomentId(viewerId, m.getId());
+        return toDto(m, user, liked, favorited, distMeters);
     }
 
     private MomentDto toDto(Moment m, User user, boolean liked, boolean favorited, Double distanceMeters) {

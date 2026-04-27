@@ -29,6 +29,14 @@ public interface FavoriteRepository extends JpaRepository<Favorite, Long> {
     @Query("SELECT f.momentId FROM Favorite f WHERE f.userId = :userId ORDER BY f.createdAt DESC")
     List<Long> findRecentMomentIdsByUserId(@Param("userId") Long userId, Pageable pageable);
 
+    /**
+     * 批量查询某用户在一组 moment 上是否有 favorite 记录（避免 feed N+1）
+     * 返回该 user 已 favorite 的 momentId 子集。
+     */
+    @Query("SELECT f.momentId FROM Favorite f WHERE f.userId = :userId AND f.momentId IN :momentIds")
+    List<Long> findFavoritedMomentIds(@Param("userId") Long userId,
+                                       @Param("momentIds") List<Long> momentIds);
+
     /** 注销账号用：清理 userId 的全部 favorite 记录 */
     @Modifying
     @Query("DELETE FROM Favorite f WHERE f.userId = :uid")

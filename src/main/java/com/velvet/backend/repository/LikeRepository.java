@@ -29,6 +29,14 @@ public interface LikeRepository extends JpaRepository<Like, Long> {
     @Query("SELECT l.momentId FROM Like l WHERE l.userId = :userId ORDER BY l.createdAt DESC")
     List<Long> findRecentMomentIdsByUserId(@Param("userId") Long userId, Pageable pageable);
 
+    /**
+     * 批量查询某用户在一组 moment 上是否有 like 记录（避免 feed N+1）
+     * 返回该 user 已 like 的 momentId 子集。
+     */
+    @Query("SELECT l.momentId FROM Like l WHERE l.userId = :userId AND l.momentId IN :momentIds")
+    List<Long> findLikedMomentIds(@Param("userId") Long userId,
+                                  @Param("momentIds") List<Long> momentIds);
+
     /** 注销账号用：清理 userId 的全部 like 记录 */
     @Modifying
     @Query("DELETE FROM Like l WHERE l.userId = :uid")
