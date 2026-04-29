@@ -1,0 +1,159 @@
+# =============================================================================
+# Velvet · AWS 生产 docker-compose（莫凡 ap-east-1 配置 · 2026-04-29）
+# =============================================================================
+# 假设：MySQL / Redis / Kafka / S3 全部用 AWS 托管服务，仅本机跑 backend + nginx
+# 用法：
+#   1. cp .env.example .env  （或用 DEPLOY.md 第 6 节的模板填）
+#   2. vi .env               （填莫凡发给你的真实密钥）
+#   3. docker compose -f docker-compose.aws.yml up -d
+#   4. docker compose -f docker-compose.aws.yml logs -f backend
+# =============================================================================
+version: "3.9"
+
+services:
+  # ──────────────────────────────────────────────────────────────────────
+  # Velvet Backend (Spring Boot 3.5 / JDK 21)
+  # 直连：AWS RDS MySQL 8.4.7 / ElastiCache Redis Serverless / MSK Kafka / S3
+  # ──────────────────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: velvet-backend:aws
+    container_name: velvet-backend
+    restart: unless-stopped
+    environment:
+      # ── 端口 ────────────────────────────────────────────────────
+      PORT: 8080
+
+      # ── MySQL (AWS RDS) ─────────────────────────────────────────
+      DB_URL: ${DB_URL:?DB_URL required (AWS RDS endpoint)}
+      DB_USER: ${DB_USER:?DB_USER required}
+      DB_PASS: ${DB_PASS:?DB_PASS required}
+
+      # ── Redis (ElastiCache Serverless · TLS) ────────────────────
+      REDIS_HOST: ${REDIS_HOST:?REDIS_HOST required}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASS: ${REDIS_PASS:-}
+      REDIS_SSL: ${REDIS_SSL:-true}
+
+      # ── Kafka (MSK Serverless · IAM auth) ───────────────────────
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:?KAFKA_BOOTSTRAP_SERVERS required}
+      KAFKA_SECURITY_PROTOCOL: ${KAFKA_SECURITY_PROTOCOL:-SASL_SSL}
+      KAFKA_SASL_MECHANISM: ${KAFKA_SASL_MECHANISM:-AWS_MSK_IAM}
+      KAFKA_SASL_JAAS_CONFIG: ${KAFKA_SASL_JAAS_CONFIG:-software.amazon.msk.auth.iam.IAMLoginModule required;}
+      KAFKA_SASL_CALLBACK: ${KAFKA_SASL_CALLBACK:-software.amazon.msk.auth.iam.IAMClientCallbackHandler}
+
+      # ── AWS 凭证（给 MSK IAM 用，也给 S3 用，二选一）─────────────
+      # 如果 EC2 挂了 IAM Role，下面两个变量留空即可（自动从 IMDSv2 取）
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_REGION: ${AWS_REGION:-ap-east-1}
+
+      # ── S3 ──────────────────────────────────────────────────────
+      S3_BUCKET: ${S3_BUCKET:?S3_BUCKET required}
+      S3_REGION: ${S3_REGION:-ap-east-1}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?S3_ACCESS_KEY required}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?S3_SECRET_KEY required}
+      S3_ENDPOINT: ${S3_ENDPOINT:-https://s3.ap-east-1.amazonaws.com}
+      S3_PUBLIC_BASE_URL: ${S3_PUBLIC_BASE_URL:-}
+
+      # ── JWT / 安全 ──────────────────────────────────────────────
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET required (>=64 chars random)}
+      JWT_ACCESS_EXP_HOURS: ${JWT_ACCESS_EXP_HOURS:-2}
+      JWT_REFRESH_EXP_DAYS: ${JWT_REFRESH_EXP_DAYS:-30}
+
+      # ── 业务配置 ─────────────────────────────────────────────────
+      VELVET_CORS_EXTRA: ${VELVET_CORS_EXTRA:-}
+      VELVET_CORS_ALLOW_LOCALHOST: "false"
+      API_DOMAIN: ${API_DOMAIN:?API_DOMAIN required}
+      PAYMENT_NOTIFY_BASE_URL: ${PAYMENT_NOTIFY_BASE_URL:?PAYMENT_NOTIFY_BASE_URL required}
+
+      # ── Apple Sign In ───────────────────────────────────────────
+      APPLE_TEAM_ID: ${APPLE_TEAM_ID:-}
+      APPLE_BUNDLE_ID: ${APPLE_BUNDLE_ID:-}
+      APPLE_KEY_ID: ${APPLE_KEY_ID:-}
+      APPLE_PRIVATE_KEY: ${APPLE_PRIVATE_KEY:-}
+
+      # ── JVM ────────────────────────────────────────────────────
+      JAVA_TOOL_OPTIONS: >-
+        -Xms512m -Xmx1024m
+        -XX:+UseG1GC
+        -XX:+ExitOnOutOfMemoryError
+        -Dfile.encoding=UTF-8
+        -Duser.timezone=Asia/Shanghai
+
+      # ── 日志 ───────────────────────────────────────────────────
+      LOGGING_LEVEL_ROOT: ${LOG_LEVEL:-INFO}
+      LOGGING_LEVEL_COM_VELVET: DEBUG
+    networks:
+      - velvet-net
+    expose:
+      - "8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:8080/actuator/health | grep -q '\"status\":\"UP\"'"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s    # 等 Flyway V1~V15 跑完
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  # ──────────────────────────────────────────────────────────────────────
+  # Nginx · 反向代理 + HTTPS + 限流
+  # ──────────────────────────────────────────────────────────────────────
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: velvet-nginx
+    restart: unless-stopped
+    depends_on:
+      - backend
+    volumes:
+      - ./nginx/velvet-aws.conf:/etc/nginx/conf.d/velvet.conf:ro
+      - ./nginx/certs:/etc/letsencrypt:ro
+      - ./nginx/www:/var/www/certbot:ro
+    networks:
+      - velvet-net
+    ports:
+      - "80:80"
+      - "443:443"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  # ──────────────────────────────────────────────────────────────────────
+  # Certbot · Let's Encrypt 自动续期（每 12 小时扫一次）
+  # ──────────────────────────────────────────────────────────────────────
+  certbot:
+    image: certbot/certbot:latest
+    container_name: velvet-certbot
+    restart: unless-stopped
+    volumes:
+      - ./nginx/certs:/etc/letsencrypt
+      - ./nginx/www:/var/www/certbot
+    entrypoint: >
+      /bin/sh -c "trap exit TERM;
+      while :; do
+        certbot renew --webroot --webroot-path=/var/www/certbot --quiet --no-random-sleep-on-renew;
+        sleep 12h & wait $${!};
+      done"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  velvet-net:
+    driver: bridge
+    name: velvet-net
