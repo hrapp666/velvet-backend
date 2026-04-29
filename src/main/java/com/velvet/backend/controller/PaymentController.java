@@ -31,20 +31,44 @@ public class PaymentController {
 
     public record CreateRequest(Long orderId, String provider) {}
 
+    public record VerifyAppleReceiptRequest(Long orderId, String receipt, String transactionId) {}
+
     /**
      * 调起支付 — 返回前端需要的 payload
-     * provider: WECHAT / ALIPAY / MOCK（生产禁用 MOCK）
+     * provider: APPLE_IAP / WECHAT / ALIPAY / MOCK（生产禁用 MOCK）
      */
     @PostMapping("/create")
     public CreateResult create(@RequestBody CreateRequest req) {
         if (req.orderId() == null) {
             throw new AppException("INVALID_REQUEST", "缺少 orderId");
         }
-        String provider = req.provider() != null ? req.provider() : "WECHAT";
+        String provider = req.provider() != null ? req.provider() : "APPLE_IAP";
         if ("MOCK".equalsIgnoreCase(provider) && !mockEnabled) {
             throw new AppException("INVALID_REQUEST", "不支持的支付方式");
         }
         return paymentService.createPayment(currentUserId(), req.orderId(), provider);
+    }
+
+    /**
+     * 验证 Apple StoreKit receipt 并标记订单 PAID
+     *
+     * <p>iOS 客户端在 StoreKit 付款成功后上传 unified_receipt（JWS）给后端，
+     * 走 AppleIapPaymentProvider.verifyNotify → markOrderPaid。
+     *
+     * <p>骨架版：当前仅占位，真实 App Store Server API 二次校验待
+     * keyId/issuerId/.p8 私钥配置后接入。
+     */
+    @PostMapping("/verify-apple-receipt")
+    public Map<String, Object> verifyAppleReceipt(@RequestBody VerifyAppleReceiptRequest req) {
+        if (req.orderId() == null || req.receipt() == null || req.receipt().isEmpty()) {
+            throw new AppException("INVALID_REQUEST", "缺少 orderId 或 receipt");
+        }
+        // 委派给 PaymentService（共用 markOrderPaid 路径，保持幂等）
+        paymentService.handleNotify("APPLE_IAP", req.receipt(), Map.of(
+                "X-Apple-TransactionId", req.transactionId() == null ? "" : req.transactionId(),
+                "X-Velvet-OrderId", String.valueOf(req.orderId())
+        ));
+        return Map.of("status", "ok");
     }
 
     /**
@@ -66,7 +90,8 @@ public class PaymentController {
     public Map<String, Object> config() {
         Map<String, Object> m = new HashMap<>();
         m.put("commissionRate", paymentService.getCommissionRate());
-        List<String> providers = new ArrayList<>(List.of("WECHAT", "ALIPAY"));
+        // APPLE_IAP 在 iOS 客户端走专属流；客户端按 Platform.isIOS 自行 narrow
+        List<String> providers = new ArrayList<>(List.of("APPLE_IAP", "WECHAT", "ALIPAY"));
         if (mockEnabled) {
             providers.add("MOCK");
         }

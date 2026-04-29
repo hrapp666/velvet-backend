@@ -32,7 +32,14 @@ spring:
     locations: classpath:db/migration
 
   kafka:
-    bootstrap-servers: ${KAFKA_SERVERS:localhost:9092}
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    # AWS MSK Serverless 走 SASL_SSL + IAM (KAFKA_SECURITY_PROTOCOL=SASL_SSL 启用)
+    # 本地开发留空走 PLAINTEXT
+    properties:
+      security.protocol: ${KAFKA_SECURITY_PROTOCOL:PLAINTEXT}
+      sasl.mechanism: ${KAFKA_SASL_MECHANISM:AWS_MSK_IAM}
+      sasl.jaas.config: ${KAFKA_SASL_JAAS_CONFIG:software.amazon.msk.auth.iam.IAMLoginModule required;}
+      sasl.client.callback.handler.class: ${KAFKA_SASL_CALLBACK:software.amazon.msk.auth.iam.IAMClientCallbackHandler}
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
@@ -104,8 +111,8 @@ velvet:
     verify-audience: ${APPLE_VERIFY_AUDIENCE:true}
   payment:
     commission-rate: ${PAYMENT_COMMISSION_RATE:0.06}   # 平台抽佣 6%
-    notify-base-url: ${PAYMENT_NOTIFY_BASE_URL:https://episodes-paid-loan-threatened.trycloudflare.com}
-    default-provider: ${PAYMENT_DEFAULT_PROVIDER:WECHAT} # WECHAT/ALIPAY（MOCK 仅沙盒）
+    notify-base-url: ${PAYMENT_NOTIFY_BASE_URL:https://agent.ylctkx9s.work}
+    default-provider: ${PAYMENT_DEFAULT_PROVIDER:APPLE_IAP} # iOS 默认 Apple Pay；APPLE_IAP/WECHAT/ALIPAY（MOCK 仅沙盒）
     # ⚠️ App Store 审核必须 false · MOCK 付款生产环境关闭
     mock-enabled: ${VELVET_PAYMENT_MOCK_ENABLED:false}
     wechat:
@@ -115,6 +122,15 @@ velvet:
     alipay:
       app-id: ${ALIPAY_APP_ID:}
       private-key: ${ALIPAY_PRIVATE_KEY:}
+    apple:
+      # iOS bundle id (与 velvet.apple.bundle-id 通常一致；保留独立 key 便于后期分离)
+      bundle-id: ${APPLE_IAP_BUNDLE_ID:com.velvet.velvet}
+      # App Store Server API key id / issuer id / 私钥 (.p8 文件路径)
+      key-id: ${APPLE_IAP_KEY_ID:}
+      issuer-id: ${APPLE_IAP_ISSUER_ID:}
+      private-key-p8-path: ${APPLE_IAP_PRIVATE_KEY_P8_PATH:}
+      # 验证环境：sandbox / production
+      environment: ${APPLE_IAP_ENVIRONMENT:sandbox}
   upload:
     s3:
       # ── S3 兼容存储配置 ──────────────────────────────────────────
@@ -137,8 +153,8 @@ velvet:
       secret-key: ${S3_SECRET_KEY:}
       # path-style: true → MinIO / 旧 S3 用路径风格 (http://endpoint/bucket/key)
       # path-style: false → AWS S3 用虚拟主机风格 (http://bucket.s3.region.amazonaws.com/key)
-      # 默认 true 兼容 MinIO；切 AWS S3 时改为 false
-      path-style: ${S3_PATH_STYLE:true}
+      # AWS S3 用 virtual-hosted style → false；MinIO 自托管 → true
+      path-style: ${S3_PATH_STYLE:false}
     cdn-base-url: ${CDN_BASE_URL:https://cdn.velvet.app}
 
 # 以下配置在 Nacos 启用后可迁移到 Nacos 配置中心:

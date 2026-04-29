@@ -58,6 +58,7 @@ public class Moment {
     @Builder.Default
     private Map<String, Object> itemAttributes = new HashMap<>();
 
+    // tags 数组以 JSON 列存储（MySQL 原生 json）
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "json")
     private String[] tags;

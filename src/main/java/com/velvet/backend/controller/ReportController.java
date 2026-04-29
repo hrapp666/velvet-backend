@@ -23,14 +23,14 @@ public class ReportController {
     private final AdminGuard adminGuard;
 
     public record CreateReportRequest(
-            String targetType,  // MOMENT / USER / COMMENT
+            String targetType,  // MOMENT / USER / COMMENT / CHAT
             Long targetId,
             String reason,      // SPAM / ADULT / FAKE / HARASSMENT / OTHER
             String description  // 详情说明
     ) {}
 
     private static final Set<String> VALID_TYPES =
-            Set.of("MOMENT", "USER", "COMMENT");
+            Set.of("MOMENT", "USER", "COMMENT", "CHAT");
     private static final Set<String> VALID_REASONS =
             Set.of("SPAM", "ADULT", "FAKE", "HARASSMENT", "OTHER");
 

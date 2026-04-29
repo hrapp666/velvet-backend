@@ -37,7 +37,7 @@ public class PaymentService {
     @Value("${velvet.payment.commission-rate:0.06}")
     private double commissionRate;
 
-    @Value("${velvet.payment.notify-base-url:https://episodes-paid-loan-threatened.trycloudflare.com}")
+    @Value("${velvet.payment.notify-base-url:https://agent.ylctkx9s.work}")
     private String notifyBaseUrl;
 
     private Map<String, PaymentProvider> providerMap;
