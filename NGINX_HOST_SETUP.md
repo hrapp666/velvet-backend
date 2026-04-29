@@ -57,7 +57,7 @@ sudo certbot certonly --nginx -d api.实际域名.com --cert-name velvet-api
 
 ```bash
 cd /opt/velvet  # 或你 clone 的位置
-docker compose -f docker-compose.aws.yml up -d backend
+docker compose up -d backend
 docker compose logs -f backend
 ```
 
@@ -100,5 +100,5 @@ EC2 Security Group：
 ```bash
 sudo rm /etc/nginx/sites-enabled/velvet.conf
 sudo systemctl reload nginx
-docker compose -f docker-compose.aws.yml down
+docker compose down
 ```
