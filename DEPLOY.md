@@ -243,7 +243,7 @@ ALIPAY_APP_ID=
 ALIPAY_PRIVATE_KEY=
 
 # ─────────── Apple Sign-In ────────────────────────────────────
-APPLE_BUNDLE_ID=com.velvet.velvet
+APPLE_BUNDLE_ID=com.hrapp.velvet
 APPLE_VERIFY_AUDIENCE=true
 
 # ─────────── CORS / 域名 / 管理员 ─────────────────────────────

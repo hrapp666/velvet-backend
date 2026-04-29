@@ -28,7 +28,7 @@ public class AppleIapPaymentProvider implements PaymentProvider {
 
     public static final String NAME = "APPLE_IAP";
 
-    @Value("${velvet.payment.apple.bundle-id:com.velvet.velvet}")
+    @Value("${velvet.payment.apple.bundle-id:com.hrapp.velvet}")
     private String bundleId;
 
     @Value("${velvet.payment.apple.environment:sandbox}")

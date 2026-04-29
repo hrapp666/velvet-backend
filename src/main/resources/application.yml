@@ -106,7 +106,7 @@ velvet:
     refresh-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000}   # 7 天（refresh token）
   apple:
     # iOS bundle id · 必须与 Xcode 工程 PRODUCT_BUNDLE_IDENTIFIER 一致 · 用于校验 Apple JWT aud claim
-    bundle-id: ${APPLE_BUNDLE_ID:com.velvet.velvet}
+    bundle-id: ${APPLE_BUNDLE_ID:com.hrapp.velvet}
     # 是否校验 Apple bundle id (生产 true, 测试可临时 false)
     verify-audience: ${APPLE_VERIFY_AUDIENCE:true}
   payment:
@@ -124,7 +124,7 @@ velvet:
       private-key: ${ALIPAY_PRIVATE_KEY:}
     apple:
       # iOS bundle id (与 velvet.apple.bundle-id 通常一致；保留独立 key 便于后期分离)
-      bundle-id: ${APPLE_IAP_BUNDLE_ID:com.velvet.velvet}
+      bundle-id: ${APPLE_IAP_BUNDLE_ID:com.hrapp.velvet}
       # App Store Server API key id / issuer id / 私钥 (.p8 文件路径)
       key-id: ${APPLE_IAP_KEY_ID:}
       issuer-id: ${APPLE_IAP_ISSUER_ID:}

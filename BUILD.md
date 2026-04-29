@@ -100,7 +100,7 @@ flutter build apk --release
 ```
 
 **产物**：`build/app/outputs/flutter-apk/app-release.apk`
-**applicationId**：`com.velvet.velvet`
+**applicationId**：`com.hrapp.velvet`
 
 > ⚠️ **打 APK 推荐去 VPS 跑** — 本机吃 CPU 严重 · 用 `make flutter-apk`（见 §5）一键远程打 + 拉回。
 
