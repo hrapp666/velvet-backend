@@ -242,9 +242,18 @@ WECHAT_API_KEY=
 ALIPAY_APP_ID=
 ALIPAY_PRIVATE_KEY=
 
-# ─────────── Apple Sign-In ────────────────────────────────────
+# ─────────── Apple Sign-In（登录 · 必填）─────────────────────
+# 只校验 audience · 公钥走 Apple JWKS · 不需要 .p8
 APPLE_BUNDLE_ID=com.hrapp.velvet
 APPLE_VERIFY_AUDIENCE=true
+
+# ─────────── Apple IAP（应用内购买 · 当前未启用）──────────────
+# 上线 IAP 时填齐 · .p8 文件放 ./secrets/ 自动挂载到容器 /app/secrets/
+APPLE_IAP_BUNDLE_ID=com.hrapp.velvet
+APPLE_IAP_KEY_ID=36PF6XD96F
+APPLE_IAP_ISSUER_ID=                                # App Store Connect → Users and Access → Keys 页顶部 UUID
+APPLE_IAP_PRIVATE_KEY_P8_PATH=/app/secrets/AuthKey_36PF6XD96F.p8
+APPLE_IAP_ENVIRONMENT=sandbox                        # 上架后改 production
 
 # ─────────── CORS / 域名 / 管理员 ─────────────────────────────
 VELVET_CORS_EXTRA=https://your-frontend.com

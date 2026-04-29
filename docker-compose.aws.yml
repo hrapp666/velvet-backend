@@ -72,11 +72,18 @@ services:
       API_DOMAIN: ${API_DOMAIN:?API_DOMAIN required}
       PAYMENT_NOTIFY_BASE_URL: ${PAYMENT_NOTIFY_BASE_URL:?PAYMENT_NOTIFY_BASE_URL required}
 
-      # ── Apple Sign In ───────────────────────────────────────────
-      APPLE_TEAM_ID: ${APPLE_TEAM_ID:-}
-      APPLE_BUNDLE_ID: ${APPLE_BUNDLE_ID:-}
-      APPLE_KEY_ID: ${APPLE_KEY_ID:-}
-      APPLE_PRIVATE_KEY: ${APPLE_PRIVATE_KEY:-}
+      # ── Apple Sign In（登录）── 只校验 audience · 走 Apple JWKS 公钥 ──
+      APPLE_BUNDLE_ID: ${APPLE_BUNDLE_ID:?APPLE_BUNDLE_ID required (必须等于 iOS PRODUCT_BUNDLE_IDENTIFIER)}
+      APPLE_VERIFY_AUDIENCE: ${APPLE_VERIFY_AUDIENCE:-true}
+
+      # ── Apple IAP（应用内购买回调验签）── 当前未启用 · 上线 IAP 时填齐 ──
+      # APPLE_IAP_BUNDLE_ID 与 APPLE_BUNDLE_ID 通常一致
+      APPLE_IAP_BUNDLE_ID: ${APPLE_IAP_BUNDLE_ID:-${APPLE_BUNDLE_ID}}
+      APPLE_IAP_KEY_ID: ${APPLE_IAP_KEY_ID:-}
+      APPLE_IAP_ISSUER_ID: ${APPLE_IAP_ISSUER_ID:-}
+      # .p8 私钥文件路径（容器内）· 通过 volume 挂载 host 的 ./secrets 目录
+      APPLE_IAP_PRIVATE_KEY_P8_PATH: ${APPLE_IAP_PRIVATE_KEY_P8_PATH:-}
+      APPLE_IAP_ENVIRONMENT: ${APPLE_IAP_ENVIRONMENT:-sandbox}
 
       # ── JVM ────────────────────────────────────────────────────
       JAVA_TOOL_OPTIONS: >-
@@ -91,6 +98,9 @@ services:
       LOGGING_LEVEL_COM_VELVET: DEBUG
     networks:
       - velvet-net
+    volumes:
+      # Apple IAP 私钥 .p8 / 其他敏感凭证 · 600 权限 · gitignore 已排除
+      - ./secrets:/app/secrets:ro
     ports:
       # 仅绑 loopback · 不暴露公网 · 给宿主机 nginx 反代用
       - "127.0.0.1:8080:8080"
