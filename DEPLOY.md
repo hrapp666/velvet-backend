@@ -275,7 +275,7 @@ SPRING_PROFILES_ACTIVE=
 
 ```bash
 mkdir -p /root/velvet && cd /root/velvet
-git clone https://github.com/huangji6693-max/velvet.git .
+git clone https://github.com/hrapp666/velvet.git .
 ls
 # velvet-backend/  velvet-flutter/  docker-compose.yml  nginx/  Makefile  .env.example
 ```
@@ -383,6 +383,6 @@ curl https://api.your-domain.com/actuator/health           # db/redis/kafka 全 
 | `.env.example` | env 完整注释模板 |
 | `velvet-backend/src/main/resources/db/migration/` | Flyway V1~V15 |
 
-monorepo：`https://github.com/huangji6693-max/velvet.git`
+monorepo：`https://github.com/hrapp666/velvet.git`
 
 跑不通先翻第八节验证清单 + 第九节常见坑。还卡住找黄哥。

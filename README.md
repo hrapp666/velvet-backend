@@ -26,11 +26,11 @@
 
 ## 快速开始
 
-完整对接手册见 [`MOFAN_ONBOARDING.md`](https://github.com/huangji6693-max/velvet/blob/main/MOFAN_ONBOARDING.md)（在 monorepo 根目录），下面是最短路径：
+完整对接手册见 [`MOFAN_ONBOARDING.md`](https://github.com/hrapp666/velvet/blob/main/MOFAN_ONBOARDING.md)（在 monorepo 根目录），下面是最短路径：
 
 ```bash
 # 1. 拉完整 monorepo（含 docker-compose / nginx / 前端）
-git clone https://github.com/huangji6693-max/velvet.git
+git clone https://github.com/hrapp666/velvet.git
 cd velvet
 
 # 2. 配 .env（必填 DB_URL / REDIS_PASS / JWT_SECRET / S3_*）
@@ -160,7 +160,7 @@ velvet:
 
 ## 常见问题
 
-完整 FAQ 见 [`MOFAN_ONBOARDING.md` 第 8 节](https://github.com/huangji6693-max/velvet/blob/main/MOFAN_ONBOARDING.md#8--常见问题-faq)。
+完整 FAQ 见 [`MOFAN_ONBOARDING.md` 第 8 节](https://github.com/hrapp666/velvet/blob/main/MOFAN_ONBOARDING.md#8--常见问题-faq)。
 
 | 问题 | 解决 |
 |---|---|
