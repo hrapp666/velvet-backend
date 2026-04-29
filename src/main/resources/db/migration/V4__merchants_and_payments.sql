@@ -3,15 +3,14 @@
 -- ============================================================================
 
 -- ----------------------------------------------------------------------------
--- 用户加 role 字段（区分个人 / 商家 / 管理员）
+-- 用户加 merchant_status 字段（role 字段在 V1 已创建）
 -- ----------------------------------------------------------------------------
 ALTER TABLE users
-    ADD COLUMN IF NOT EXISTS role VARCHAR(16) NOT NULL DEFAULT 'USER',
-    ADD COLUMN IF NOT EXISTS merchant_status VARCHAR(16) DEFAULT 'NONE';
--- role: USER (默认个人) / MERCHANT (认证商家) / ADMIN
+    ADD COLUMN merchant_status VARCHAR(16) DEFAULT 'NONE';
+-- role: USER (默认个人) / MERCHANT (认证商家) / ADMIN  -- V1 已创建
 -- merchant_status: NONE (未申请) / PENDING / APPROVED / REJECTED
 
-CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+CREATE INDEX idx_users_role ON users(role);
 
 -- ----------------------------------------------------------------------------
 -- 商家档案
@@ -89,4 +88,4 @@ CREATE TABLE IF NOT EXISTS payments (
 -- 订单加 commission_cents（平台抽佣金额，价格快照计算）
 -- ----------------------------------------------------------------------------
 ALTER TABLE orders
-    ADD COLUMN IF NOT EXISTS commission_cents BIGINT NOT NULL DEFAULT 0;
+    ADD COLUMN commission_cents BIGINT NOT NULL DEFAULT 0;

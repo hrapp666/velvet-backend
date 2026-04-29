@@ -1,93 +1,177 @@
-# backend
+# Velvet Backend · Spring Boot 3.5 + JDK 21
 
+> 约会 + 二手寄售双形态社区的后端单体服务。
+> Touch what was touched. 私藏，流转。
 
+---
 
-## Getting started
+## 技术栈
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+| 层 | 选型 |
+|---|---|
+| 框架 | Spring Boot 3.5.0 + Spring Cloud 2024.0.1 + Spring Cloud Alibaba 2023.0.3.2 |
+| JDK | Eclipse Temurin **21**（不可降级） |
+| 数据库 | AWS RDS MySQL **8.4.7**（版本锁定 · `utf8mb4_0900_ai_ci`） |
+| 缓存 | Redis 7（Lettuce 客户端 · session / 限流 / JWT 黑名单） |
+| 消息队列 | Apache Kafka 3.8（KRaft 模式 · 事件驱动） |
+| 对象存储 | AWS S3（bucket `hr-ai-amzn` · region `ap-southeast-1`） |
+| 数据库迁移 | Flyway（V1~V15 · 启动自动跑） |
+| 鉴权 | JJWT 0.12.6（access 30min + refresh 7d） |
+| ORM | Spring Data JPA + Hibernate 6（`ddl-auto: validate`） |
+| 反代 | Nginx + Let's Encrypt |
+| 服务注册 | Nacos 2.4.3（可选） |
+| 监控 | Spring Actuator + Prometheus（`/actuator/prometheus`） |
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+---
 
-## Add your files
+## 快速开始
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
+完整对接手册见 [`MOFAN_ONBOARDING.md`](https://github.com/huangji6693-max/velvet/blob/main/MOFAN_ONBOARDING.md)（在 monorepo 根目录），下面是最短路径：
+
+```bash
+# 1. 拉完整 monorepo（含 docker-compose / nginx / 前端）
+git clone https://github.com/huangji6693-max/velvet.git
+cd velvet
+
+# 2. 配 .env（必填 DB_URL / REDIS_PASS / JWT_SECRET / S3_*）
+cp .env.example .env
+vi .env
+
+# 3. 启动核心服务（不含本地 mysql/minio · 用 AWS 托管）
+docker compose up -d
+
+# 4. 验证
+curl https://api.your-domain.com/api/v1/health
+docker compose logs backend --tail 50
+```
+
+---
+
+## API 端点
+
+20 个 Controller，全部前缀 `/api/v1`：
+
+| Controller | 路径 | 用途 |
+|---|---|---|
+| AuthController | `/api/v1/auth/{register,login,apple,refresh,logout,me}` | 鉴权 |
+| UserController | `/api/v1/users/**` | 用户资料 |
+| MomentController | `/api/v1/moments/**` | 动态 feed |
+| CommentController | `/api/v1/comments/**` | 评论 |
+| SocialController | `/api/v1/{like,favorite,follow}` | 互动 |
+| ChatController | `/api/v1/chat/**` | 私信 |
+| MerchantController | `/api/v1/merchants/**` | 商家 |
+| OrderController | `/api/v1/orders/**` | 订单 |
+| OrderReviewController | `/api/v1/reviews/**` | 评价 |
+| PaymentController | `/api/v1/payments/**` | 支付 |
+| PaymentNotifyController | `/api/v1/payments/notify/**` | 支付回调（验签内部） |
+| WalletController | `/api/v1/wallet/**` | 钱包 |
+| UploadController | `/api/v1/upload/presign` | S3 预签名 URL |
+| NotificationController | `/api/v1/notifications/**` | 通知 |
+| ReportController | `/api/v1/reports/**` | 举报 |
+| BlockController | `/api/v1/blocks/**` | 拉黑 |
+| SearchController | `/api/v1/search/**` | 搜索 |
+| AdminStatsController | `/api/v1/admin/stats` | 后台统计 |
+| HealthController | `/api/v1/health` | 健康检查 |
+
+WebSocket：`/ws/chat`（握手时 JWT 在 query string）
+
+---
+
+## 目录结构
 
 ```
-cd existing_repo
-git remote add origin https://gitlab.qmpexevcqy.work/huangji/backend.git
-git branch -M main
-git push -uf origin main
+velvet-backend/
+├── src/main/java/com/velvet/backend/
+│   ├── controller/      # HTTP API 入口（20 个 Controller）
+│   ├── service/         # 业务逻辑 + 事务边界
+│   ├── repository/      # JPA Repository
+│   ├── entity/          # JPA Entity
+│   ├── dto/             # 请求/响应 DTO
+│   ├── security/        # Spring Security + JWT 配置
+│   ├── config/          # WebSocket / CORS / Redis 等配置
+│   ├── websocket/       # ChatWebSocketHandler
+│   ├── event/           # Kafka 事件 payload
+│   └── exception/       # 全局异常 + 错误码
+├── src/main/resources/
+│   ├── application.yml          # 主配置（全部从 ENV 读）
+│   ├── application-dev.yml      # 本地覆盖（不入容器）
+│   ├── bootstrap.yml            # Nacos 启动配置
+│   └── db/migration/            # Flyway V1~V15
+├── Dockerfile                   # 多阶段构建（maven build → jre runtime）
+└── pom.xml
 ```
 
-## Integrate with your tools
+---
 
-- [ ] [Set up project integrations](https://gitlab.qmpexevcqy.work/huangji/backend/-/settings/integrations)
+## 本地开发
 
-## Collaborate with your team
+```bash
+# 启动 MySQL + Redis（用本地 docker）
+docker run -d --name velvet-mysql -p 3306:3306 \
+  -e MYSQL_ROOT_PASSWORD=root \
+  -e MYSQL_DATABASE=velvet \
+  -e MYSQL_USER=velvet -e MYSQL_PASSWORD=velvet \
+  mysql:8.4.7
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
+docker run -d --name velvet-redis -p 6379:6379 redis:7-alpine
 
-## Test and Deploy
+# 跑应用
+cd velvet-backend
+./mvnw spring-boot:run \
+  -Dspring-boot.run.profiles=dev \
+  -Dspring-boot.run.jvmArguments="-DDB_PASS=velvet -DREDIS_PASS= -DJWT_SECRET=$(openssl rand -base64 64)"
+```
 
-Use the built-in continuous integration in GitLab.
+或者用 `application-dev.yml`：
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+```yaml
+# src/main/resources/application-dev.yml（不入容器，本地用）
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/velvet?useSSL=false&serverTimezone=UTC&characterEncoding=UTF-8
+    password: velvet
+velvet:
+  jwt:
+    secret: dev-secret-at-least-32-bytes-long-for-jwt-signing-please-replace
+```
 
-***
+---
 
-# Editing this README
+## 测试
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+```bash
+./mvnw clean verify              # 单元测试 + 集成测试
+./mvnw test                      # 仅单元
+./mvnw checkstyle:check          # 代码风格
+```
 
-## Suggestions for a good README
+---
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+## 安全约定
 
-## Name
-Choose a self-explaining name for your project.
+- 所有错误响应**不含**详细 message / stacktrace（`server.error.include-message: never`）
+- 所有受保护端点必须 `@PreAuthorize` 或 `SecurityConfig` 显式放行
+- 密钥不入代码 → 全部从 `${ENV:default}` 读
+- JWT secret 必须 ≥256 bit（`openssl rand -base64 64`）
+- Apple Sign-In 必须校验 `aud` claim 与 `APPLE_BUNDLE_ID` 一致
+- CORS 生产必须显式列白名单（`VELVET_CORS_EXTRA`），关 localhost（`VELVET_CORS_ALLOW_LOCALHOST=false`）
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+---
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+## 常见问题
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+完整 FAQ 见 [`MOFAN_ONBOARDING.md` 第 8 节](https://github.com/huangji6693-max/velvet/blob/main/MOFAN_ONBOARDING.md#8--常见问题-faq)。
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+| 问题 | 解决 |
+|---|---|
+| Flyway checksum mismatch | `DELETE FROM flyway_schema_history WHERE version='X'` 重启 |
+| backend unhealthy | 看日志缺哪个 ENV / 网络是否通 RDS / Redis / MSK |
+| 上传 S3 失败 | 检查 `S3_PATH_STYLE=false`、region 一致、IAM `s3:PutObject` 权限 |
+| WebSocket 连不上 | 检查 Nginx `Upgrade: websocket` header 转发 + 用 `wss://` |
+| 中文乱码 | RDS 字符集必须 `utf8mb4_0900_ai_ci`，连接串带 `characterEncoding=utf8mb4` |
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
-
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
-
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
-
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
-
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+---
 
 ## License
-For open source projects, say how it is licensed.
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+私有 / 商业项目（Velvet by 黄哥团队）

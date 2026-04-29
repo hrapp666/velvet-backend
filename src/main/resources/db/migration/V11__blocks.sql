@@ -18,5 +18,5 @@ CREATE TABLE IF NOT EXISTS blocks (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 索引（IF NOT EXISTS 兼容 MySQL 8.0.29+）
-CREATE INDEX IF NOT EXISTS idx_blocks_blocker_created ON blocks(blocker_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_blocks_blocked ON blocks(blocked_id);
+CREATE INDEX idx_blocks_blocker_created ON blocks(blocker_id, created_at DESC);
+CREATE INDEX idx_blocks_blocked ON blocks(blocked_id);

@@ -66,18 +66,15 @@ CREATE TABLE IF NOT EXISTS withdrawals (
     INDEX idx_withdrawals_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 订单增加平台佣金快照字段（便于审计/结算）
--- 注：V4 已添加 commission_cents，此处保留 IF NOT EXISTS 幂等
-ALTER TABLE orders
-    ADD COLUMN IF NOT EXISTS commission_cents BIGINT NOT NULL DEFAULT 0;
+-- 订单增加平台佣金快照字段（V4 已添加 commission_cents，此处略过避免 MySQL Duplicate column）
 
 -- 个人卖家收款账号（merchants 表加字段）
 ALTER TABLE merchants
-    ADD COLUMN IF NOT EXISTS seller_type VARCHAR(16) DEFAULT 'PERSONAL',
-    ADD COLUMN IF NOT EXISTS personal_real_name VARCHAR(64),
-    ADD COLUMN IF NOT EXISTS personal_id_no VARCHAR(32),
-    ADD COLUMN IF NOT EXISTS receive_alipay VARCHAR(128),
-    ADD COLUMN IF NOT EXISTS receive_wechat VARCHAR(128),
-    ADD COLUMN IF NOT EXISTS receive_bank_card VARCHAR(64),
-    ADD COLUMN IF NOT EXISTS receive_bank_name VARCHAR(64);
+    ADD COLUMN seller_type VARCHAR(16) DEFAULT 'PERSONAL',
+    ADD COLUMN personal_real_name VARCHAR(64),
+    ADD COLUMN personal_id_no VARCHAR(32),
+    ADD COLUMN receive_alipay VARCHAR(128),
+    ADD COLUMN receive_wechat VARCHAR(128),
+    ADD COLUMN receive_bank_card VARCHAR(64),
+    ADD COLUMN receive_bank_name VARCHAR(64);
 -- seller_type: PERSONAL (个人) / BUSINESS (营业执照商家)

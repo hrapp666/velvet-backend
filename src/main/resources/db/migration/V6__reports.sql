@@ -5,5 +5,5 @@
 -- 现有列: id/reporter_id/target_type/target_id/reason/description/status/handled_by/handled_at/created_at
 -- 默认 status='OPEN'
 
-CREATE INDEX IF NOT EXISTS idx_reports_status_created
+CREATE INDEX idx_reports_status_created
     ON reports(status, created_at DESC);

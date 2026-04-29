@@ -7,12 +7,12 @@
 -- ============================================================================
 
 ALTER TABLE moments
-    ADD COLUMN IF NOT EXISTS latitude  DOUBLE,
-    ADD COLUMN IF NOT EXISTS longitude DOUBLE;
+    ADD COLUMN latitude  DOUBLE,
+    ADD COLUMN longitude DOUBLE;
 
 -- bounding box 预过滤索引（MySQL 不支持 partial WHERE，去掉 WHERE 子句）
-CREATE INDEX IF NOT EXISTS idx_moments_lat ON moments (latitude);
-CREATE INDEX IF NOT EXISTS idx_moments_lng ON moments (longitude);
+CREATE INDEX idx_moments_lat ON moments (latitude);
+CREATE INDEX idx_moments_lng ON moments (longitude);
 
 -- 列注释（MySQL 用 ALTER TABLE ... MODIFY COLUMN ... COMMENT）
 ALTER TABLE moments

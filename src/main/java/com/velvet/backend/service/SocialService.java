@@ -27,6 +27,8 @@ public class SocialService {
 
     @Transactional
     public boolean toggleLike(Long userId, Long momentId) {
+        Moment m = momentRepo.findById(momentId)
+                .orElseThrow(() -> new AppException("MOMENT_NOT_FOUND", "动态不存在或已被删除"));
         boolean exists = likeRepo.existsByUserIdAndMomentId(userId, momentId);
         if (exists) {
             likeRepo.deleteByUserIdAndMomentId(userId, momentId);
@@ -35,15 +37,10 @@ public class SocialService {
         }
         likeRepo.save(Like.builder().userId(userId).momentId(momentId).build());
         adjustMomentCount(momentId, "like", 1);
-
-        // 通知
-        Moment m = momentRepo.findById(momentId).orElse(null);
-        if (m != null) {
-            notifService.create(
-                    m.getUserId(), "LIKE", "有人心动了你的动态", null,
-                    userId, "MOMENT", momentId
-            );
-        }
+        notifService.create(
+                m.getUserId(), "LIKE", "有人心动了你的动态", null,
+                userId, "MOMENT", momentId
+        );
         return true;
     }
 
@@ -51,6 +48,8 @@ public class SocialService {
 
     @Transactional
     public boolean toggleFavorite(Long userId, Long momentId) {
+        Moment m = momentRepo.findById(momentId)
+                .orElseThrow(() -> new AppException("MOMENT_NOT_FOUND", "动态不存在或已被删除"));
         boolean exists = favoriteRepo.existsByUserIdAndMomentId(userId, momentId);
         if (exists) {
             favoriteRepo.deleteByUserIdAndMomentId(userId, momentId);
@@ -59,14 +58,10 @@ public class SocialService {
         }
         favoriteRepo.save(Favorite.builder().userId(userId).momentId(momentId).build());
         adjustMomentCount(momentId, "favorite", 1);
-
-        Moment m = momentRepo.findById(momentId).orElse(null);
-        if (m != null) {
-            notifService.create(
-                    m.getUserId(), "FAVORITE", "有人收藏了你的动态", null,
-                    userId, "MOMENT", momentId
-            );
-        }
+        notifService.create(
+                m.getUserId(), "FAVORITE", "有人收藏了你的动态", null,
+                userId, "MOMENT", momentId
+        );
         return true;
     }
 

@@ -6,7 +6,7 @@
 -- ============================================================================
 
 -- wallet version 列 (JPA @Version 乐观锁)
-ALTER TABLE wallets ADD COLUMN IF NOT EXISTS version BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE wallets ADD COLUMN version BIGINT NOT NULL DEFAULT 0;
 
 -- comments.user_id 缺索引 (database-reviewer #7)
-CREATE INDEX IF NOT EXISTS idx_comments_user ON comments(user_id);
+CREATE INDEX idx_comments_user ON comments(user_id);
