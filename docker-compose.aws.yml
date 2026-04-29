@@ -1,12 +1,15 @@
 # =============================================================================
-# Velvet · AWS 生产 docker-compose（莫凡 ap-east-1 配置 · 2026-04-29）
+# Velvet · AWS 生产 docker-compose（莫凡 ap-east-1 配置 · 2026-04-29 · v2）
 # =============================================================================
-# 假设：MySQL / Redis / Kafka / S3 全部用 AWS 托管服务，仅本机跑 backend + nginx
+# 架构：
+#   - 容器内：仅 backend（Spring Boot 3.5 / JDK 21）
+#   - 宿主机：nginx + certbot（apt install · 不放 docker，方便配多域名 / 证书）
+#   - 数据层：MySQL / Redis / Kafka / S3 全部 AWS 托管
+#
 # 用法：
-#   1. cp .env.example .env  （或用 DEPLOY.md 第 6 节的模板填）
-#   2. vi .env               （填莫凡发给你的真实密钥）
-#   3. docker compose -f docker-compose.aws.yml up -d
-#   4. docker compose -f docker-compose.aws.yml logs -f backend
+#   1. cp .env.example .env && vi .env       （填莫凡的真实密钥）
+#   2. docker compose -f docker-compose.aws.yml up -d
+#   3. 宿主机 nginx 配置见 NGINX_HOST_SETUP.md
 # =============================================================================
 version: "3.9"
 
@@ -88,8 +91,9 @@ services:
       LOGGING_LEVEL_COM_VELVET: DEBUG
     networks:
       - velvet-net
-    expose:
-      - "8080"
+    ports:
+      # 仅绑 loopback · 不暴露公网 · 给宿主机 nginx 反代用
+      - "127.0.0.1:8080:8080"
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O- http://localhost:8080/actuator/health | grep -q '\"status\":\"UP\"'"]
       interval: 30s
@@ -102,56 +106,7 @@ services:
         max-size: "50m"
         max-file: "5"
 
-  # ──────────────────────────────────────────────────────────────────────
-  # Nginx · 反向代理 + HTTPS + 限流
-  # ──────────────────────────────────────────────────────────────────────
-  nginx:
-    image: nginx:1.27-alpine
-    container_name: velvet-nginx
-    restart: unless-stopped
-    depends_on:
-      - backend
-    volumes:
-      - ./nginx/velvet-aws.conf:/etc/nginx/conf.d/velvet.conf:ro
-      - ./nginx/certs:/etc/letsencrypt:ro
-      - ./nginx/www:/var/www/certbot:ro
-    networks:
-      - velvet-net
-    ports:
-      - "80:80"
-      - "443:443"
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost/ || exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-    logging:
-      driver: json-file
-      options:
-        max-size: "50m"
-        max-file: "5"
-
-  # ──────────────────────────────────────────────────────────────────────
-  # Certbot · Let's Encrypt 自动续期（每 12 小时扫一次）
-  # ──────────────────────────────────────────────────────────────────────
-  certbot:
-    image: certbot/certbot:latest
-    container_name: velvet-certbot
-    restart: unless-stopped
-    volumes:
-      - ./nginx/certs:/etc/letsencrypt
-      - ./nginx/www:/var/www/certbot
-    entrypoint: >
-      /bin/sh -c "trap exit TERM;
-      while :; do
-        certbot renew --webroot --webroot-path=/var/www/certbot --quiet --no-random-sleep-on-renew;
-        sleep 12h & wait $${!};
-      done"
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
+# nginx 和 certbot 已迁出容器，跑在宿主机 · 见 NGINX_HOST_SETUP.md
 
 networks:
   velvet-net:
