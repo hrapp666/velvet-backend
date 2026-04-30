@@ -258,7 +258,6 @@ APPLE_IAP_ENVIRONMENT=sandbox                        # 上架后改 production
 # ─────────── CORS / 域名 / 管理员 ─────────────────────────────
 VELVET_CORS_EXTRA=https://your-frontend.com
 VELVET_CORS_ALLOW_LOCALHOST=false
-API_DOMAIN=api.your-domain.com
 ADMIN_USERNAMES=huangji,admin,root
 ADMIN_USER_IDS=1
 

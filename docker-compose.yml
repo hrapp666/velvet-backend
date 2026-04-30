@@ -69,7 +69,6 @@ services:
       # ── 业务配置 ─────────────────────────────────────────────────
       VELVET_CORS_EXTRA: ${VELVET_CORS_EXTRA:-}
       VELVET_CORS_ALLOW_LOCALHOST: "false"
-      API_DOMAIN: ${API_DOMAIN:?API_DOMAIN required}
       PAYMENT_NOTIFY_BASE_URL: ${PAYMENT_NOTIFY_BASE_URL:?PAYMENT_NOTIFY_BASE_URL required}
 
       # ── Apple Sign In（登录）── 只校验 audience · 走 Apple JWKS 公钥 ──
