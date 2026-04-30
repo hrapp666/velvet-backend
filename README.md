@@ -41,7 +41,7 @@ vi .env
 docker compose up -d
 
 # 4. 验证
-curl https://api.your-domain.com/api/v1/health
+curl https://api.rvqu4vaz.work/api/v1/health
 docker compose logs backend --tail 50
 ```
 

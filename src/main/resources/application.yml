@@ -63,6 +63,8 @@ spring:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASS:}
+      ssl:
+        enabled: ${REDIS_SSL:false}    # AWS ElastiCache Serverless 强制 TLS · 自托管 Redis 7 关
 
 server:
   port: ${PORT:8080}
@@ -111,7 +113,7 @@ velvet:
     verify-audience: ${APPLE_VERIFY_AUDIENCE:true}
   payment:
     commission-rate: ${PAYMENT_COMMISSION_RATE:0.06}   # 平台抽佣 6%
-    notify-base-url: ${PAYMENT_NOTIFY_BASE_URL:https://agent.ylctkx9s.work}
+    notify-base-url: ${PAYMENT_NOTIFY_BASE_URL:https://api.rvqu4vaz.work}
     default-provider: ${PAYMENT_DEFAULT_PROVIDER:APPLE_IAP} # iOS 默认 Apple Pay；APPLE_IAP/WECHAT/ALIPAY（MOCK 仅沙盒）
     # ⚠️ App Store 审核必须 false · MOCK 付款生产环境关闭
     mock-enabled: ${VELVET_PAYMENT_MOCK_ENABLED:false}
