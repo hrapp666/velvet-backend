@@ -63,6 +63,8 @@ spring:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASS:}
+      ssl:
+        enabled: ${REDIS_SSL:false}    # AWS ElastiCache Serverless 强制 TLS · 自托管 Redis 7 关
 
 server:
   port: ${PORT:8080}
