@@ -150,7 +150,7 @@ rsync -azh --delete \
 ssh -i ~/.ssh/velvet_vps root@145.223.88.222 "nginx -t && systemctl reload nginx"
 ```
 
-**线上地址**：https://agent.ylctkx9s.work
+**线上地址**：https://api.rvqu4vaz.work
 **Nginx 配置**：`/etc/nginx/sites-enabled/velvet.conf`（root → `/root/velvet/h5-demo`）
 
 ---
@@ -213,7 +213,7 @@ curl https://api.ylctkx9s.work/api/v1/health
 docker compose -f /root/velvet/docker-compose.yml logs --tail=50 backend | grep "Started VelvetBackendApplication"
 
 # H5
-curl -s -I https://agent.ylctkx9s.work/app.js | grep -i last-modified
+curl -s -I https://api.rvqu4vaz.work/app.js | grep -i last-modified
 md5sum h5-demo/app.js  # 本机 md5 应等于 VPS 上的
 ```
 

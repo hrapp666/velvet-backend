@@ -28,7 +28,7 @@ sudo ln -s /etc/nginx/sites-available/velvet.conf /etc/nginx/sites-enabled/velve
 sudo rm -f /etc/nginx/sites-enabled/default
 
 # 替换占位域名
-sudo sed -i 's/api.your-domain.com/api.实际域名.com/g' /etc/nginx/sites-available/velvet.conf
+sudo sed -i 's/api.rvqu4vaz.work/api.实际域名.com/g' /etc/nginx/sites-available/velvet.conf
 
 sudo nginx -t          # 配置语法检查
 sudo systemctl reload nginx

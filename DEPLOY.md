@@ -30,7 +30,7 @@
 | Security Group · 入站 | 80 / 443 / 22 (限制 IP) |
 | Security Group · 出站 | RDS:3306 / Redis:6379 / Kafka:9098 全放行 |
 | IAM Role | 附 `kafka-cluster:*`（用于 MSK IAM 鉴权） |
-| 域名 | Route 53 解析到 EC2 公网 IP（例 `api.your-domain.com`） |
+| 域名 | Route 53 解析到 EC2 公网 IP（例 `api.rvqu4vaz.work`） |
 
 ```bash
 # 装依赖
@@ -235,7 +235,7 @@ KAFKA_SASL_CALLBACK=software.amazon.msk.auth.iam.IAMClientCallbackHandler
 VELVET_PAYMENT_MOCK_ENABLED=false
 PAYMENT_DEFAULT_PROVIDER=WECHAT
 PAYMENT_COMMISSION_RATE=0.06
-PAYMENT_NOTIFY_BASE_URL=https://api.your-domain.com
+PAYMENT_NOTIFY_BASE_URL=https://api.rvqu4vaz.work
 WECHAT_MCH_ID=
 WECHAT_APP_ID=
 WECHAT_API_KEY=
@@ -289,13 +289,12 @@ vi .env   # 填第六节的真实值（黄哥私聊给你的密钥）
 ### 7.3 配 Nginx 域名 + 证书
 
 ```bash
-# 替换 nginx 配置里的旧域名
-sed -i 's/agent.ylctkx9s.work/api.your-domain.com/g' nginx/velvet.conf
+# nginx/velvet-aws.conf 默认已写好 api.rvqu4vaz.work,如需改用其他域名再 sed 替换
 
 # 临时启 nginx 处理 ACME challenge
 docker compose up -d nginx
 docker compose run --rm certbot certonly --webroot --webroot-path=/var/www/certbot \
-  -d api.your-domain.com --agree-tos --register-unsafely-without-email
+  -d api.rvqu4vaz.work --agree-tos --register-unsafely-without-email
 docker compose restart nginx
 ```
 
@@ -321,8 +320,8 @@ docker compose logs -f backend
 
 ```bash
 docker compose ps                                          # 全 healthy/running
-curl https://api.your-domain.com/api/v1/health             # {"status":"UP",...}
-curl https://api.your-domain.com/actuator/health           # db/redis/kafka 全 UP
+curl https://api.rvqu4vaz.work/api/v1/health             # {"status":"UP",...}
+curl https://api.rvqu4vaz.work/actuator/health           # db/redis/kafka 全 UP
 ```
 
 ---

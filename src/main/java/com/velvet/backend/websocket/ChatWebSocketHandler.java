@@ -23,7 +23,7 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * <p>协议：
  * <ul>
- *   <li>connect: wss://api.velvet.app/ws/chat ; Sec-WebSocket-Protocol: velvet.token.&lt;JWT&gt;</li>
+ *   <li>connect: wss://api.rvqu4vaz.work/ws/chat ; Sec-WebSocket-Protocol: velvet.token.&lt;JWT&gt;</li>
  *   <li>send msg: {"type":"MSG","conversationId":1,"content":"hi","msgType":"TEXT"}</li>
  *   <li>typing:   {"type":"TYPING","conversationId":1}</li>
  *   <li>read:     {"type":"READ","conversationId":1,"messageId":99}</li>
