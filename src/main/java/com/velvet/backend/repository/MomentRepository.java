@@ -17,6 +17,14 @@ public interface MomentRepository extends JpaRepository<Moment, Long> {
             Long userId, String status, Pageable pageable
     );
 
+    /** 作者自己看自己的：含 PENDING_REVIEW / PUBLISHED / REJECTED，排除 DELETED */
+    @Query("SELECT m FROM Moment m WHERE m.userId = :userId AND m.status <> 'DELETED' " +
+           "ORDER BY m.createdAt DESC")
+    Page<Moment> findByUserIdExcludingDeleted(@Param("userId") Long userId, Pageable pageable);
+
+    /** 后台审核队列 */
+    Page<Moment> findByStatusOrderByCreatedAtAsc(String status, Pageable pageable);
+
     @Query("SELECT m FROM Moment m WHERE m.status = 'PUBLISHED' " +
            "AND m.userId IN (SELECT f.followeeId FROM Follow f WHERE f.followerId = :userId) " +
            "ORDER BY m.createdAt DESC")

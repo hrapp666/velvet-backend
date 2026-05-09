@@ -34,6 +34,7 @@ public class CommentService {
     private final MomentRepository momentRepo;
     private final UserRepository userRepo;
     private final NotificationService notifService;
+    private final ContentModerationService contentModerationService;
 
     public record CommentDto(
             Long id,
@@ -55,6 +56,10 @@ public class CommentService {
         if (content.length() > 2000) {
             throw new AppException("INVALID_REQUEST", "评论不能超过 2000 字");
         }
+
+        // v26 苹果合规：评论文本审核（命中违禁词直接抛 ContentViolationException）
+        // 评论数量大、纯文本、风险低，采用预过滤+实时显示策略（区别于 moments 先审后发）
+        contentModerationService.moderateText(content, "comment_user_" + userId + "_moment_" + momentId);
 
         // XSS 防护：HTML 转义用户输入
         content = HtmlUtils.htmlEscape(content);

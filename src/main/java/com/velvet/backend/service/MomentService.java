@@ -30,7 +30,6 @@ public class MomentService {
     private final UserRepository userRepo;
     private final LikeRepository likeRepo;
     private final FavoriteRepository favoriteRepo;
-    private final MerchantService merchantService;
     private final com.velvet.backend.security.HtmlSanitizer htmlSanitizer;
     private final ContentModerationService contentModerationService;
     private final BlockService blockService;
@@ -40,14 +39,8 @@ public class MomentService {
         User user = userRepo.findById(userId)
                 .orElseThrow(() -> new AppException("USER_NOT_FOUND", "用户不存在"));
 
-        // 商家认证检查 — 挂售商品必须是认证商家
-        boolean wantSale = Boolean.TRUE.equals(req.hasItem())
-                && req.itemPriceCents() != null
-                && req.itemPriceCents() > 0;
-        if (wantSale && !merchantService.canPublishItem(userId)) {
-            throw new AppException("MERCHANT_REQUIRED",
-                    "发布商品需先完成商家认证");
-        }
+        // v26 苹果合规：本版本无交易功能 · 强制忽略客户端提交的 hasItem/itemPriceCents
+        // 即使老客户端意外发送，也以 false/null 入库，确保数据干净。
 
         // 内容审核 — DB 写入前拦截违规文本（v0 本地词表；v1 云 API 接入后替换）
         contentModerationService.moderateText(req.title(), "moment_title_user_" + userId);
@@ -64,22 +57,23 @@ public class MomentService {
                 .content(htmlSanitizer.sanitizeRich(req.content()))
                 .coverUrl(req.coverUrl())
                 .mediaUrls(req.mediaUrls() != null ? req.mediaUrls() : List.of())
-                .hasItem(Boolean.TRUE.equals(req.hasItem()))
-                .itemPriceCents(req.itemPriceCents())
+                .hasItem(false)
+                .itemPriceCents(null)
                 .itemAttributes(req.itemAttributes() != null ? req.itemAttributes() : new HashMap<>())
                 .tags(req.tags() != null ? req.tags().toArray(new String[0]) : new String[0])
                 .location(req.location())
                 .latitude(sanitizeLat(req.latitude()))
                 .longitude(sanitizeLng(req.longitude()))
                 .visibility(req.visibility() != null ? req.visibility() : "PUBLIC")
-                .status("PUBLISHED")
+                // v26 苹果合规：先审后发。文本审核已通过（上面 moderateText），
+                // 但图片/视频内容仍需后台人工/AI 复核才能进入 feed。
+                .status("PENDING_REVIEW")
                 .build();
 
         Moment saved = momentRepo.save(moment);
 
-        // 更新用户动态计数
-        user.setMomentsCount(user.getMomentsCount() + 1);
-        userRepo.save(user);
+        // momentsCount 仅统计已发布；PENDING 不计入，避免计数虚高
+        // 审核通过时再 +1，见 ModerationService.approveMoment()
 
         return toDto(saved, user, false, false, null);
     }
@@ -115,9 +109,14 @@ public class MomentService {
             return Page.empty(PageRequest.of(page, Math.min(size, 50)));
         }
         Pageable pageable = PageRequest.of(page, Math.min(size, 50));
-        Page<Moment> moments = momentRepo.findByUserIdAndStatusOrderByCreatedAtDesc(
-                userId, "PUBLISHED", pageable
-        );
+        // 作者自己看自己：能看到 PENDING_REVIEW / PUBLISHED / REJECTED（用于显示审核态徽标）
+        // 别人看：只看 PUBLISHED
+        boolean isSelf = viewerId != null && viewerId.equals(userId);
+        Page<Moment> moments = isSelf
+                ? momentRepo.findByUserIdExcludingDeleted(userId, pageable)
+                : momentRepo.findByUserIdAndStatusOrderByCreatedAtDesc(
+                        userId, "PUBLISHED", pageable
+                );
         // N+1 fix: 同 userId，只 fetch 一次
         User user = userRepo.findById(userId).orElse(null);
         Set<Long> likedSet = batchFetchLikedIds(viewerId, moments.getContent());
@@ -261,7 +260,13 @@ public class MomentService {
         Moment moment = momentRepo.findById(momentId)
                 .orElseThrow(() -> new AppException("MOMENT_NOT_FOUND", "动态不存在"));
 
-        if (!"PUBLISHED".equals(moment.getStatus())) {
+        // 作者自己可以看 PENDING_REVIEW / REJECTED（用于审核状态查看）
+        // 其他人只能看 PUBLISHED
+        boolean isAuthor = viewerId != null && viewerId.equals(moment.getUserId());
+        if (!isAuthor && !"PUBLISHED".equals(moment.getStatus())) {
+            throw new AppException("MOMENT_NOT_FOUND", "动态不存在");
+        }
+        if (isAuthor && "DELETED".equals(moment.getStatus())) {
             throw new AppException("MOMENT_NOT_FOUND", "动态不存在");
         }
 

@@ -103,7 +103,8 @@ velvet:
     usernames: ${ADMIN_USERNAMES:huangji,admin,root}
     user-ids: ${ADMIN_USER_IDS:1}
   jwt:
-    secret: ${JWT_SECRET:change-me-in-production-this-is-256-bit-secret-replace-now}
+    # JWT_SECRET 必须由环境变量提供 · 不提供时启动失败 · 杜绝默认弱密钥泄露
+    secret: ${JWT_SECRET:}
     expiration-ms: ${JWT_EXPIRATION_MS:1800000}            # 30 分钟（access token）
     refresh-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000}   # 7 天（refresh token）
   apple:

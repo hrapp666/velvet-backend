@@ -4,6 +4,7 @@ import com.velvet.backend.entity.Order;
 import com.velvet.backend.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,9 +16,13 @@ import java.util.List;
  * 订单定时任务
  * - 超时未支付自动取消（30 分钟）
  * - 超时未确认自动确认收货（7 天）
+ *
+ * v26 苹果合规：订单功能已下线 · 默认禁用
+ * 仅当 velvet.commerce.enabled=true 时启用
  */
 @Slf4j
 @Component
+@ConditionalOnProperty(name = "velvet.commerce.enabled", havingValue = "true", matchIfMissing = false)
 @RequiredArgsConstructor
 public class OrderScheduler {
 

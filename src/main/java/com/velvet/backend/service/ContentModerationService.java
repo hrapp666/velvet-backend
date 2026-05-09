@@ -3,6 +3,7 @@ package com.velvet.backend.service;
 import com.velvet.backend.exception.ContentViolationException;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
@@ -36,6 +37,22 @@ public class ContentModerationService {
 
     /** 词表：全部小写，启动时一次性加载，运行期只读，线程安全 */
     private Set<String> forbiddenWords;
+
+    /** 阿里云绿网 AccessKey ID — 空 = 未配置 = v0 fallback (永远放行) */
+    @Value("${moderation.aliyun.access-key-id:}")
+    private String aliyunAccessKeyId;
+
+    /** 阿里云绿网 AccessKey Secret — 与 ID 同步配置 */
+    @Value("${moderation.aliyun.access-key-secret:}")
+    private String aliyunAccessKeySecret;
+
+    /** 阿里云绿网区域，默认 cn-shanghai */
+    @Value("${moderation.aliyun.region:cn-shanghai}")
+    private String aliyunRegion;
+
+    /** 图审失败 (网络 / 鉴权 / SDK 异常) 时的 fail-open 开关 — 默认 true 不阻断流程 */
+    @Value("${moderation.image.fail-open:true}")
+    private boolean imageFailOpen;
 
     @PostConstruct
     public void init() {
@@ -104,25 +121,64 @@ public class ContentModerationService {
     }
 
     /**
-     * 图像内容审核 — v0 占位，永远放行。
+     * 图像内容审核 — v1 框架（env-var gated）。
      *
-     * <p>v1 升级路径：
+     * <p>路由策略：
+     * <ul>
+     *   <li>未配置 AccessKey → v0 fallback：永远 return true（不阻断主流程，保持向后兼容）</li>
+     *   <li>已配置 AccessKey → 调阿里云绿网 imageSyncScan，suggestion=pass 才放行</li>
+     *   <li>SDK 异常 → 看 {@code moderation.image.fail-open}：true=放行（默认）/ false=拦截</li>
+     * </ul>
+     *
+     * <p>主人挂 key 步骤（application.yml 或环境变量）：
      * <pre>
-     * // 阿里云绿网
-     * GreenClient client = new GreenClient(accessKeyId, accessKeySecret, regionId);
-     * ImageSyncScanRequest request = new ImageSyncScanRequest();
-     * request.setScene("porn,terrorism");
-     * request.setImageUrl(imageUrl);
-     * ImageSyncScanResponse response = client.imageSyncScan(request);
-     * return response.getSuggestion().equals("pass");
+     * moderation:
+     *   aliyun:
+     *     access-key-id: ${ALIYUN_GREEN_AK_ID:}
+     *     access-key-secret: ${ALIYUN_GREEN_AK_SECRET:}
+     *     region: cn-shanghai
+     *   image:
+     *     fail-open: true
      * </pre>
      *
-     * @param imageUrl MinIO / CDN 图片 URL
-     * @return true 代表审核通过
+     * @param imageUrl MinIO / CDN 图片 URL，null 或空白直接放行
+     * @return true 代表审核通过 / 未配置 / fail-open 兜底
      */
     public boolean moderateImage(String imageUrl) {
-        // v0：不检查，永远 return true
-        // v1：调阿里云 / 腾讯云 image moderation API，主人挂 key 后替换
+        if (imageUrl == null || imageUrl.isBlank()) {
+            return true;
+        }
+        if (aliyunAccessKeyId == null || aliyunAccessKeyId.isBlank()
+                || aliyunAccessKeySecret == null || aliyunAccessKeySecret.isBlank()) {
+            // v0 fallback：未配置 AccessKey，保持原行为永远放行
+            // 警告级日志只打印一次的责任不在此方法 (Spring 启动时单次警告更合适，由后续 PR 接管)
+            return true;
+        }
+        try {
+            return callAliyunGreen(imageUrl);
+        } catch (Exception e) {
+            log.error("Image moderation call failed url=[{}] failOpen={}", imageUrl, imageFailOpen, e);
+            return imageFailOpen;
+        }
+    }
+
+    /**
+     * 阿里云绿网 imageSyncScan 调用。
+     *
+     * <p>当前为占位 — 真实接入需要 {@code com.aliyun:green20220302} 依赖。挂 key 后再补 SDK + 实现。
+     * 维持方法签名稳定，后续替换不影响 {@link #moderateImage(String)}。
+     *
+     * @return suggestion="pass" 时 true，否则 false
+     */
+    private boolean callAliyunGreen(String imageUrl) {
+        // TODO(v1.1)：pom.xml 加入 green20220302 SDK + 真实调用
+        // GreenClient client = new GreenClient(aliyunAccessKeyId, aliyunAccessKeySecret, aliyunRegion);
+        // ImageSyncScanRequest req = new ImageSyncScanRequest();
+        // req.setScene("porn,terrorism,ad");
+        // req.setImageUrl(imageUrl);
+        // var resp = client.imageSyncScan(req);
+        // return "pass".equals(resp.getSuggestion());
+        log.warn("Aliyun Green SDK not yet wired; falling back to permissive pass for url=[{}]", imageUrl);
         return true;
     }
 }

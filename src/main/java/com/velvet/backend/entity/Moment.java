@@ -81,8 +81,17 @@ public class Moment {
     @Builder.Default @Column(name = "is_pinned", nullable = false)
     private Boolean isPinned = false;
 
+    /**
+     * 内容审核状态（v26 苹果合规：先审后发）：
+     * - PENDING_REVIEW: 用户刚发布，等待人工/AI 审核（feed/搜索/同城均不显示）
+     * - PUBLISHED:      审核通过，正常展示（=旧的 APPROVED）
+     * - REJECTED:       审核拒绝，仅作者可见
+     * - DELETED:        作者删除（软删）
+     *
+     * 历史数据（v26 之前）保持 PUBLISHED 不动。
+     */
     @Builder.Default @Column(length = 16, nullable = false)
-    private String status = "PUBLISHED";
+    private String status = "PENDING_REVIEW";
 
     // ----- 计数 -----
     @Builder.Default @Column(name = "view_count", nullable = false)

@@ -49,10 +49,17 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/comments/public/**").permitAll()
                         .requestMatchers("/api/v1/users/public/**").permitAll()
                         .requestMatchers("/api/v1/search/public/**").permitAll()
-                        .requestMatchers("/api/v1/reviews/public/**").permitAll()
-                        .requestMatchers("/api/v1/merchants/public/**").permitAll()
-                        .requestMatchers("/api/v1/payments/notify/**").permitAll()
-                        .requestMatchers("/api/v1/payments/config").permitAll()
+                        // v26 苹果合规：reviews/merchants/payments/orders/wallet 已下线统一 410
+                        // 放行至 controller 层，由 410 stub 直接返回 FEATURE_DISABLED
+                        .requestMatchers(
+                                "/api/v1/payments/**",
+                                "/api/v1/payment-notify/**",
+                                "/api/v1/orders/**",
+                                "/api/v1/merchants/**",
+                                "/api/v1/wallet/**",
+                                "/api/v1/reviews/**",
+                                "/api/v1/order-reviews/**"
+                        ).permitAll()
                         .requestMatchers("/ws/**").permitAll()
                         // Actuator (audit P0 监控) — health/info/prometheus 公开 · 其余需 admin
                         .requestMatchers("/actuator/health", "/actuator/info", "/actuator/prometheus").permitAll()

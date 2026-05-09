@@ -29,10 +29,20 @@ public class JwtUtils {
 
     @PostConstruct
     void init() {
-        // 至少 256 位
+        // 启动校验：JWT_SECRET 必须由环境变量提供 · 不接受默认/弱密钥
+        if (secret == null || secret.isBlank()) {
+            throw new IllegalStateException(
+                    "JWT_SECRET 未配置 · 必须通过环境变量提供至少 32 字节随机字符串");
+        }
         byte[] keyBytes = secret.getBytes(StandardCharsets.UTF_8);
         if (keyBytes.length < 32) {
-            throw new IllegalStateException("velvet.jwt.secret 长度不足 256 位");
+            throw new IllegalStateException(
+                    "velvet.jwt.secret 长度不足 256 位 · 当前 " + keyBytes.length + " 字节");
+        }
+        // 拒绝示例/默认值
+        if (secret.startsWith("change-me") || secret.contains("replace-now")) {
+            throw new IllegalStateException(
+                    "velvet.jwt.secret 仍为默认占位值 · 必须替换为生产随机密钥");
         }
         this.key = Keys.hmacShaKeyFor(keyBytes);
     }

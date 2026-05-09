@@ -1,91 +1,25 @@
 package com.velvet.backend.controller;
 
-import com.velvet.backend.exception.AppException;
-import com.velvet.backend.service.OrderService;
-import com.velvet.backend.service.OrderService.CreateOrderRequest;
-import com.velvet.backend.service.OrderService.OrderDto;
-import com.velvet.backend.service.OrderService.PayRequest;
-import com.velvet.backend.service.OrderService.ShipRequest;
-import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
 
+/**
+ * v26 苹果合规：订单功能已下线
+ * 所有 /api/v1/orders/** 端点统一返回 410 Gone
+ */
 @RestController
 @RequestMapping("/api/v1/orders")
-@RequiredArgsConstructor
 public class OrderController {
 
-    private final OrderService orderService;
-
-    /** 下单 */
-    @PostMapping
-    public OrderDto create(@RequestBody CreateOrderRequest req) {
-        return orderService.create(currentUserId(), req);
-    }
-
-    /** 单个订单详情 */
-    @GetMapping("/{id}")
-    public OrderDto get(@PathVariable Long id) {
-        return orderService.getById(currentUserId(), id);
-    }
-
-    /** 我作为买家的订单 */
-    @GetMapping("/buyer")
-    public Page<OrderDto> listAsBuyer(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
-    ) {
-        return orderService.listAsBuyer(currentUserId(), page, size);
-    }
-
-    /** 我作为卖家的订单 */
-    @GetMapping("/seller")
-    public Page<OrderDto> listAsSeller(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
-    ) {
-        return orderService.listAsSeller(currentUserId(), page, size);
-    }
-
-    /** 买家付款 */
-    @PostMapping("/{id}/pay")
-    public OrderDto pay(@PathVariable Long id, @RequestBody PayRequest req) {
-        return orderService.pay(currentUserId(), id, req);
-    }
-
-    /** 卖家发货 */
-    @PostMapping("/{id}/ship")
-    public OrderDto ship(@PathVariable Long id, @RequestBody ShipRequest req) {
-        return orderService.ship(currentUserId(), id, req);
-    }
-
-    /** 买家确认收货 */
-    @PostMapping("/{id}/confirm")
-    public OrderDto confirm(@PathVariable Long id) {
-        return orderService.confirm(currentUserId(), id);
-    }
-
-    /** 取消订单（仅 PENDING） */
-    @PostMapping("/{id}/cancel")
-    public OrderDto cancel(@PathVariable Long id) {
-        return orderService.cancel(currentUserId(), id);
-    }
-
-    /** 申请退款 */
-    @PostMapping("/{id}/refund")
-    public OrderDto refund(@PathVariable Long id, @RequestBody Map<String, String> body) {
-        return orderService.requestRefund(currentUserId(), id, body.get("reason"));
-    }
-
-    private Long currentUserId() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !(auth.getPrincipal() instanceof Long id)) {
-            throw new AppException("UNAUTHORIZED", "请先登录");
-        }
-        return id;
+    @RequestMapping(path = {"", "/**"})
+    public ResponseEntity<Map<String, Object>> disabled() {
+        return ResponseEntity.status(HttpStatus.GONE).body(Map.of(
+                "code", "FEATURE_DISABLED",
+                "message", "订单功能已下线，当前版本仅支持分享好物"
+        ));
     }
 }
