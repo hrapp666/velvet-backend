@@ -63,6 +63,8 @@ public class SecurityConfig {
                         .requestMatchers("/ws/**").permitAll()
                         // Actuator (audit P0 监控) — health/info/prometheus 公开 · 其余需 admin
                         .requestMatchers("/actuator/health", "/actuator/info", "/actuator/prometheus").permitAll()
+                        // v26 admin 审核后台静态资源 (HTML/JS 本身公开 · API 调用仍走 AdminGuard token 鉴权)
+                        .requestMatchers("/admin", "/admin/", "/admin/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)

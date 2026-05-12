@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Velvet · 审核后台</title>
+<style>
+  :root {
+    --bg: #0d0a08;
+    --bg-card: #1a1410;
+    --bg-elev: #221a14;
+    --gold: #c9a063;
+    --gold-soft: #b08d50;
+    --text: #f0e8d8;
+    --text-dim: #9c8c70;
+    --text-mute: #6b5a45;
+    --border: rgba(201,160,99,0.18);
+    --error: #c47878;
+    --success: #88b08a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "PingFang SC", sans-serif;
+    font-weight: 300;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 24px 32px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  h1 {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 400;
+    letter-spacing: 4px;
+    color: var(--gold);
+  }
+  .stats {
+    display: flex;
+    gap: 32px;
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+  .stats b {
+    color: var(--text);
+    font-weight: 400;
+    margin-left: 6px;
+  }
+  main {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 32px 16px;
+  }
+  .login-box {
+    max-width: 360px;
+    margin: 80px auto;
+    padding: 32px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+  }
+  .login-box h2 {
+    margin: 0 0 24px;
+    font-size: 16px;
+    font-weight: 400;
+    letter-spacing: 3px;
+    color: var(--gold);
+    text-align: center;
+  }
+  input {
+    width: 100%;
+    padding: 12px 14px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 14px;
+    font-family: inherit;
+    margin-bottom: 12px;
+  }
+  input:focus {
+    outline: none;
+    border-color: var(--gold);
+  }
+  button {
+    padding: 10px 20px;
+    background: transparent;
+    border: 1px solid var(--gold);
+    border-radius: 8px;
+    color: var(--gold);
+    font-size: 13px;
+    letter-spacing: 1px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all .2s;
+  }
+  button:hover { background: var(--gold); color: var(--bg); }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  button.primary {
+    background: var(--gold);
+    color: var(--bg);
+  }
+  button.primary:hover { background: var(--gold-soft); }
+  button.danger {
+    border-color: var(--error);
+    color: var(--error);
+  }
+  button.danger:hover { background: var(--error); color: var(--bg); }
+  button.full { width: 100%; padding: 12px; }
+  .moment-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .moment-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 10px;
+  }
+  .moment-user {
+    font-size: 13px;
+    color: var(--gold-soft);
+    letter-spacing: 1px;
+  }
+  .moment-time {
+    font-size: 11px;
+    color: var(--text-mute);
+  }
+  .moment-title {
+    font-size: 15px;
+    font-weight: 400;
+    color: var(--text);
+    margin: 6px 0 8px;
+    letter-spacing: 1px;
+  }
+  .moment-content {
+    font-size: 14px;
+    color: var(--text-dim);
+    white-space: pre-wrap;
+    word-break: break-word;
+    line-height: 1.7;
+    margin-bottom: 12px;
+  }
+  .moment-tags {
+    font-size: 11px;
+    color: var(--text-mute);
+    margin-bottom: 12px;
+    letter-spacing: 1px;
+  }
+  .moment-media {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+  .moment-media img,
+  .moment-media video {
+    width: 96px;
+    height: 96px;
+    object-fit: cover;
+    border-radius: 6px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    cursor: pointer;
+  }
+  .moment-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+  }
+  .empty {
+    text-align: center;
+    color: var(--text-mute);
+    padding: 80px 0;
+    font-size: 14px;
+    letter-spacing: 2px;
+  }
+  .toast {
+    position: fixed;
+    bottom: 32px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 12px 24px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 13px;
+    z-index: 100;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .25s;
+  }
+  .toast.show { opacity: 1; }
+  .toast.error { border-color: var(--error); color: var(--error); }
+  .toast.success { border-color: var(--success); color: var(--success); }
+  .modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.75);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+  }
+  .modal.show { display: flex; }
+  .modal-box {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+    width: 360px;
+  }
+  .modal h3 { margin: 0 0 12px; font-size: 14px; color: var(--gold); letter-spacing: 2px; }
+  .modal textarea {
+    width: 100%;
+    padding: 10px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 13px;
+    min-height: 72px;
+    resize: vertical;
+    margin-bottom: 12px;
+  }
+  .modal-buttons { display: flex; gap: 10px; justify-content: flex-end; }
+  .lightbox {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.9);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+    cursor: zoom-out;
+  }
+  .lightbox.show { display: flex; }
+  .lightbox img, .lightbox video {
+    max-width: 90vw;
+    max-height: 90vh;
+    object-fit: contain;
+  }
+  @media (max-width: 600px) {
+    header { padding: 16px; flex-direction: column; gap: 12px; align-items: flex-start; }
+    .stats { gap: 18px; }
+    main { padding: 16px 8px; }
+    .moment-card { padding: 14px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="login" class="login-box">
+  <h2>VELVET 审核后台</h2>
+  <input id="loginAccount" placeholder="账号 / 手机 / 邮箱" autocomplete="username">
+  <input id="loginPassword" type="password" placeholder="密码" autocomplete="current-password">
+  <button class="primary full" onclick="login()">登录</button>
+</div>
+
+<div id="app" style="display:none">
+  <header>
+    <h1>VELVET 审核后台</h1>
+    <div class="stats">
+      <span>待审 <b id="statPending">—</b></span>
+      <span>已发布 <b id="statPublished">—</b></span>
+      <span>已拒 <b id="statRejected">—</b></span>
+      <button onclick="reload()" style="padding:6px 14px; font-size:12px">刷新</button>
+      <button onclick="logout()" style="padding:6px 14px; font-size:12px">登出</button>
+    </div>
+  </header>
+  <main>
+    <div id="list"></div>
+  </main>
+</div>
+
+<div id="rejectModal" class="modal">
+  <div class="modal-box">
+    <h3>拒绝原因</h3>
+    <textarea id="rejectReason" placeholder="可填写拒绝原因（用户不会看到，仅日志留痕）"></textarea>
+    <div class="modal-buttons">
+      <button onclick="closeReject()">取消</button>
+      <button class="danger" onclick="confirmReject()">确认拒绝</button>
+    </div>
+  </div>
+</div>
+
+<div id="lightbox" class="lightbox" onclick="closeLightbox()">
+  <div id="lightboxContent"></div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+const API_BASE = window.location.origin;
+let token = localStorage.getItem('velvet_admin_token') || '';
+let currentRejectId = null;
+
+function toast(msg, kind) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show' + (kind ? ' ' + kind : '');
+  setTimeout(() => { el.className = 'toast'; }, 2400);
+}
+
+async function api(path, opts) {
+  opts = opts || {};
+  opts.headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
+  if (token) opts.headers['Authorization'] = 'Bearer ' + token;
+  const res = await fetch(API_BASE + path, opts);
+  if (res.status === 401 || res.status === 403) {
+    token = '';
+    localStorage.removeItem('velvet_admin_token');
+    showLogin();
+    throw new Error('UNAUTHORIZED');
+  }
+  const text = await res.text();
+  let data;
+  try { data = text ? JSON.parse(text) : {}; } catch { data = { raw: text }; }
+  if (!res.ok) {
+    const msg = (data && (data.message || data.error)) || ('HTTP ' + res.status);
+    throw new Error(msg);
+  }
+  return data;
+}
+
+async function login() {
+  const account = document.getElementById('loginAccount').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  if (!account || !password) { toast('账号密码不能空', 'error'); return; }
+  try {
+    const data = await api('/api/v1/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ account, password })
+    });
+    token = data.token || data.accessToken;
+    localStorage.setItem('velvet_admin_token', token);
+    showApp();
+    reload();
+  } catch (e) {
+    toast('登录失败：' + e.message, 'error');
+  }
+}
+
+function logout() {
+  token = '';
+  localStorage.removeItem('velvet_admin_token');
+  showLogin();
+}
+
+function showLogin() {
+  document.getElementById('login').style.display = '';
+  document.getElementById('app').style.display = 'none';
+}
+
+function showApp() {
+  document.getElementById('login').style.display = 'none';
+  document.getElementById('app').style.display = '';
+}
+
+async function reload() {
+  try {
+    const stats = await api('/api/v1/admin/moderation/stats');
+    document.getElementById('statPending').textContent = stats.pending ?? '—';
+    document.getElementById('statPublished').textContent = stats.published ?? '—';
+    document.getElementById('statRejected').textContent = stats.rejected ?? '—';
+    const pending = await api('/api/v1/admin/moderation/moments/pending?page=0&size=50');
+    renderList(pending.content || []);
+  } catch (e) {
+    if (e.message !== 'UNAUTHORIZED') toast('加载失败：' + e.message, 'error');
+  }
+}
+
+function fmtTime(iso) {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    return d.getFullYear() + '-' +
+      String(d.getMonth()+1).padStart(2,'0') + '-' +
+      String(d.getDate()).padStart(2,'0') + ' ' +
+      String(d.getHours()).padStart(2,'0') + ':' +
+      String(d.getMinutes()).padStart(2,'0');
+  } catch { return iso; }
+}
+
+function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function renderMedia(urls) {
+  if (!urls || !urls.length) return '';
+  const items = urls.map(u => {
+    const safe = escapeHtml(u);
+    const isVideo = /\.(mp4|mov|m4v)(\?|$)/i.test(u);
+    if (isVideo) {
+      return '<video src="'+safe+'" muted onclick="openLightbox(\''+safe+'\',true)"></video>';
+    }
+    return '<img src="'+safe+'" loading="lazy" onclick="openLightbox(\''+safe+'\',false)">';
+  }).join('');
+  return '<div class="moment-media">'+items+'</div>';
+}
+
+function renderList(list) {
+  const root = document.getElementById('list');
+  if (!list.length) {
+    root.innerHTML = '<div class="empty">暂无待审动态</div>';
+    return;
+  }
+  root.innerHTML = list.map(m => {
+    const tags = (m.tags || []).map(t => '# '+escapeHtml(t)).join('  ');
+    return [
+      '<div class="moment-card" data-id="'+m.id+'">',
+        '<div class="moment-head">',
+          '<span class="moment-user">@'+escapeHtml(m.userNickname||'匿名')+' · #'+m.userId+' · moment '+m.id+'</span>',
+          '<span class="moment-time">'+fmtTime(m.createdAt)+'</span>',
+        '</div>',
+        m.title ? '<div class="moment-title">'+escapeHtml(m.title)+'</div>' : '',
+        '<div class="moment-content">'+escapeHtml(m.content||'')+'</div>',
+        tags ? '<div class="moment-tags">'+tags+'</div>' : '',
+        renderMedia(m.mediaUrls),
+        '<div class="moment-actions">',
+          '<button class="danger" onclick="openReject('+m.id+')">拒绝</button>',
+          '<button class="primary" onclick="approve('+m.id+')">通过</button>',
+        '</div>',
+      '</div>'
+    ].join('');
+  }).join('');
+}
+
+async function approve(id) {
+  try {
+    await api('/api/v1/admin/moderation/moments/'+id+'/approve', { method: 'POST' });
+    toast('已通过 #'+id, 'success');
+    removeCard(id);
+    refreshStats();
+  } catch (e) {
+    toast('通过失败：'+e.message, 'error');
+  }
+}
+
+function openReject(id) {
+  currentRejectId = id;
+  document.getElementById('rejectReason').value = '';
+  document.getElementById('rejectModal').classList.add('show');
+}
+
+function closeReject() {
+  currentRejectId = null;
+  document.getElementById('rejectModal').classList.remove('show');
+}
+
+async function confirmReject() {
+  if (currentRejectId == null) return;
+  const reason = document.getElementById('rejectReason').value.trim();
+  try {
+    await api('/api/v1/admin/moderation/moments/'+currentRejectId+'/reject', {
+      method: 'POST',
+      body: JSON.stringify({ reason })
+    });
+    toast('已拒绝 #'+currentRejectId, 'success');
+    removeCard(currentRejectId);
+    closeReject();
+    refreshStats();
+  } catch (e) {
+    toast('拒绝失败：'+e.message, 'error');
+  }
+}
+
+function removeCard(id) {
+  const el = document.querySelector('.moment-card[data-id="'+id+'"]');
+  if (el) el.remove();
+  if (!document.querySelector('.moment-card')) {
+    document.getElementById('list').innerHTML = '<div class="empty">暂无待审动态</div>';
+  }
+}
+
+async function refreshStats() {
+  try {
+    const stats = await api('/api/v1/admin/moderation/stats');
+    document.getElementById('statPending').textContent = stats.pending ?? '—';
+    document.getElementById('statPublished').textContent = stats.published ?? '—';
+    document.getElementById('statRejected').textContent = stats.rejected ?? '—';
+  } catch {}
+}
+
+function openLightbox(url, isVideo) {
+  const box = document.getElementById('lightboxContent');
+  box.innerHTML = isVideo
+    ? '<video src="'+escapeHtml(url)+'" controls autoplay></video>'
+    : '<img src="'+escapeHtml(url)+'">';
+  document.getElementById('lightbox').classList.add('show');
+}
+
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('show');
+  document.getElementById('lightboxContent').innerHTML = '';
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    closeLightbox();
+    closeReject();
+  }
+});
+
+document.getElementById('loginPassword').addEventListener('keydown', e => {
+  if (e.key === 'Enter') login();
+});
+
+if (token) {
+  showApp();
+  reload();
+} else {
+  showLogin();
+}
+</script>
+</body>
+</html>

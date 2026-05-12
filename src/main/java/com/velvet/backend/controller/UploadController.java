@@ -19,6 +19,7 @@ public class UploadController {
 
     private static final Set<String> ALLOWED_MIME = Set.of(
             "image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif",
+            "image/heic", "image/heif",
             "video/mp4", "video/quicktime"
     );
 
