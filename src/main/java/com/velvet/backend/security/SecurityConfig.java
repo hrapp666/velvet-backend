@@ -92,7 +92,8 @@ public class SecurityConfig {
         List<String> origins = new ArrayList<>(List.of(
                 "https://*.velvet.app",
                 "https://*.velvet.market",
-                "https://hrapp666.github.io"
+                "https://hrapp666.github.io",
+                "https://*.rvqu4vaz.work"
         ));
         if (allowLocalhost) {
             origins.add("http://localhost:*");
