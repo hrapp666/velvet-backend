@@ -3,7 +3,6 @@ package com.velvet.backend.dto;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Past;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -27,8 +26,11 @@ public final class AuthRequests {
             @Size(min = 1, max = 32)
             String nickname,
 
-            /** 出生日期 · App Store 约会类 app 18+ 合规要求 */
-            @NotNull(message = "请选择出生日期")
+            /**
+             * 出生日期 · 可选字段
+             * Apple 5.1.1(v) 合规：不强制要求生日 · 用户可不填
+             * 若填了则必须是过去日期且年满 18 周岁（service 层校验）
+             */
             @Past(message = "出生日期必须在过去")
             @JsonFormat(pattern = "yyyy-MM-dd")
             LocalDate birthday,

@@ -35,10 +35,13 @@ public class AuthService {
         }
 
         // 18+ 校验 · App Store 合规
-        LocalDate today = LocalDate.now();
-        int age = Period.between(req.birthday(), today).getYears();
-        if (age < MIN_AGE) {
-            throw new AppException("UNDER_AGE", "抱歉 · 需年满 18 周岁");
+        // Apple 5.1.1(v) 合规：birthday 可选 · 若用户填了才校验年龄
+        if (req.birthday() != null) {
+            LocalDate today = LocalDate.now();
+            int age = Period.between(req.birthday(), today).getYears();
+            if (age < MIN_AGE) {
+                throw new AppException("UNDER_AGE", "抱歉 · 需年满 18 周岁");
+            }
         }
 
         User user = User.builder()
